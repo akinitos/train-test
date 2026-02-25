@@ -1,0 +1,5 @@
+django>=5.1
+djangorestframework>=3.15
+django-cors-headers>=4.6
+google-adk>=1.25
+python-dotenv>=1.0
