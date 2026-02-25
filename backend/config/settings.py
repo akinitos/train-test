@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "corsheaders",
     # Local
     "agent",
+    "frontend",
 ]
 
 MIDDLEWARE = [
