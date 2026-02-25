@@ -8,11 +8,13 @@ import PrevButtonImg from '../assets/prev.png';
 import '../styles/landing.css';
 
 export default function Landing() {
+  //Setup
   const [step, setStep] = useState(1);
   const [manufacturer, setManufacturer] = useState('');
   const [productName, setProductName] = useState('');
   const [error, setError] = useState('');
 
+  //Error and Input Steps handling
   const handleNext = () => {
     if (step === 1) {
       if (manufacturer.trim() === '') {
@@ -30,7 +32,7 @@ export default function Landing() {
       }
       setError('');
       console.log('Submitted:', { manufacturer, productName });
-      setStep(3); // Proceed to Output Page
+      setStep(3); 
     }
   };
 
@@ -49,6 +51,7 @@ export default function Landing() {
     if (error) setError('');
   };
 
+  //Output
   const outputData = [
     { label: 'FlowNom56', value: '' },
     { label: 'Phase', value: '' },

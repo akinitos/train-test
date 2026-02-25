@@ -27,7 +27,7 @@ body {
 }
 
 .logo {
-  margin-bottom: 6rem;
+  margin-bottom: 3rem;
   max-width: 400px;
   width: 100%;
   height: auto;
@@ -81,11 +81,11 @@ body {
 }
 
 .box-input:focus {
-  background-color: #f2f2f2;
+  background-color: #fafafa;
 }
 
 .box-input:hover {
-  background-color: #f2f2f2;
+  background-color: #fafafa;
 }
 
 .button-group {
