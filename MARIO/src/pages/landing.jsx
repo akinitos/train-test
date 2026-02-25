@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import InputComponent from '../components/inputComponent';
-import OutputComponent from '../components/OutputComponent'; // Import the new component
+import OutputComponent from '../components/outputComponent';
 import Logo from '../assets/logo.png';
 import NextButtonImg from '../assets/next.png'; 
 import EnterButtonImg from '../assets/enter.png'; 
