@@ -66,7 +66,6 @@ def read_webpage(url: str) -> str:
     except Exception as e:
         return f"Error fetching webpage: {str(e)}"
 
-
 # ---------------------------------------------------------------------------
 # Build the JSON-schema string the agent must conform to
 # ---------------------------------------------------------------------------
