@@ -3,7 +3,6 @@ import { FiSettings, FiZap } from 'react-icons/fi';
 import InputComponent from '../components/inputComponent';
 import OutputComponent from '../components/outputComponent';
 import ConfirmModal from '../components/ConfirmModal';
-import Sidebar from '../components/Sidebar';
 import { standardSearch, advancedSearch } from '../services/api';
 import Logo from '../assets/logo.svg';
 import '../styles/landing.css';
