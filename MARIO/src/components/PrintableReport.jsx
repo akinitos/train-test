@@ -11,7 +11,7 @@ function formatDate(date) {
 
 export default function PrintableReport({ reportData }) {
 	if (!reportData) return null;
-	const { manufacturer, product_name, specifications, prescriptive_analysis, decision_process } = reportData;
+	const { manufacturer, product_name, specifications, replacement_options = [], data_validation_matrix = [], sources = [] } = reportData;
 	const today = new Date();
 
 	return (

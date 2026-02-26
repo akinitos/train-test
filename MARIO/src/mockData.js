@@ -1,8 +1,10 @@
 
 export const mockIndustrialPumpReport = {
+	manufacturer: 'Grundfos',
+	product_name: 'CR 45-3',
 	specifications: {
-		nominal_flow_m3h: 36.0, // Typical nominal flow (not max)
-		nominal_head_m: 15.0, // Typical nominal head (not max)
+		nominal_flow_m3h: 36.0,
+		nominal_head_m: 15.0,
 		motor_power_kw: 5.5,
 		efficiency_percent: 78,
 		material_compatibility: 'Stainless Steel 316, PTFE',
