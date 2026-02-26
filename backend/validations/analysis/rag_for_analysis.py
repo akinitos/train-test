@@ -1,116 +1,215 @@
-# Import necessary libraries
+"""
+RAG-based Maintenance Approach Validation.
+
+Uses Study_of_Various_Maintenance_Approaches.pdf to provide
+an independent engineering assessment of maintenance strategies,
+with confidence scoring derived from FAISS vector similarity.
+"""
+
+import json
 import os
-import pdfplumber
 import numpy as np
+import pdfplumber
 from typing import List, Dict, Any
 
-# For vector storage and retrieval
 import faiss
-
-# For text processing
-import re
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage
-
-# For env vars (API keys)
+from google import genai
 from dotenv import load_dotenv
-load_dotenv()  # Load environment variables from .env file
 
-# Verify Google API key is set
+load_dotenv()
+
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if not GOOGLE_API_KEY:
-    raise ValueError("Please set your GOOGLE_API_KEY in .env file or environment variables")
+    raise ValueError("GOOGLE_API_KEY is not set in .env or environment variables")
 
-# Initialize LangChain models (API key is picked up from environment)
-embedding_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.8)
+_client = genai.Client(api_key=GOOGLE_API_KEY)
+_EMBEDDING_MODEL = "gemini-embedding-exp-03-07"
+_LLM_MODEL = "gemini-2.5-flash"
+_PDF_PATH = os.path.join(os.path.dirname(__file__), "Study_of_Various_Maintenance_Approaches.pdf")
 
 print("All libraries imported successfully!")
 
-def extract_text_from_pdf(pdf_path: str) -> str:
-    """Extract text content from a PDF file."""
-    with pdfplumber.open(pdf_path) as pdf:
-        text = ""
-        for page in pdf.pages:
-            text += page.extract_text() + "\n"
-        return text
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _extract_text(pdf_path: str) -> str:
+    with pdfplumber.open(pdf_path) as pdf:
+        pages = []
+        for page in pdf.pages:
+            txt = page.extract_text()
+            if txt:
+                pages.append(txt)
+        return "\n".join(pages)
+
+
+def _embed_texts(texts: List[str]) -> List[List[float]]:
+    all_emb: List[List[float]] = []
+    for i in range(0, len(texts), 100):
+        batch = texts[i : i + 100]
+        resp = _client.models.embed_content(model=_EMBEDDING_MODEL, contents=batch)
+        all_emb.extend([e.values for e in resp.embeddings])
+    return all_emb
+
+
+def _embed_query(text: str) -> List[float]:
+    resp = _client.models.embed_content(model=_EMBEDDING_MODEL, contents=[text])
+    return resp.embeddings[0].values
+
+
+def _search(query: str, text_chunks: List[str], index, top_k: int = 5) -> List[Dict[str, Any]]:
+    qvec = np.array([_embed_query(query)]).astype("float32")
+    distances, indices = index.search(qvec, top_k)
+    results = []
+    for rank, idx in enumerate(indices[0]):
+        if idx == -1:
+            continue
+        score = float(1.0 / (1.0 + distances[0][rank]))
+        results.append({"chunk": text_chunks[idx], "score": score, "id": int(idx)})
+    return results
+
+
+def _confidence_label(score: float) -> str:
+    if score >= 0.70:
+        return "HIGH"
+    if score >= 0.45:
+        return "MEDIUM"
+    return "LOW"
+
+
+def _generate_summary(query: str, results: List[Dict[str, Any]]) -> str:
+    ctx = "\n".join(f"  [{i+1}] {r['chunk']}" for i, r in enumerate(results))
+    prompt = (
+        f"Query: {query}\n\n"
+        f"Retrieved Document Sections:\n{ctx}\n\n"
+        "Instructions:\n"
+        "1. Synthesise the above into a concise, professional engineering summary.\n"
+        "2. Do NOT reference 'chunk' or 'section numbers'.\n"
+        "3. Write as a senior reliability engineer advising on maintenance strategy.\n"
+    )
+    resp = _client.models.generate_content(model=_LLM_MODEL, contents=prompt)
+    return (resp.text or "").strip()
+
+
+def _generate_key_findings(query: str, results: List[Dict[str, Any]]) -> List[str]:
+    ctx = "\n".join(f"  [{i+1}] {r['chunk']}" for i, r in enumerate(results))
+    prompt = (
+        f"Query: {query}\n\nContext:\n{ctx}\n\n"
+        "Return ONLY a JSON array of 3-5 short key engineering findings about maintenance. "
+        "Example: [\"Finding one\", \"Finding two\"]\n"
+        "No markdown fences, no extra text."
+    )
+    resp = _client.models.generate_content(model=_LLM_MODEL, contents=prompt)
+    raw = (resp.text or "[]").strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    try:
+        findings = json.loads(raw)
+        if isinstance(findings, list):
+            return [str(f) for f in findings[:5]]
+    except json.JSONDecodeError:
+        pass
+    return [raw]
+
+
+def _compute_validation_metrics(
+    query: str, results: List[Dict[str, Any]], summary: str
+) -> Dict[str, Any]:
+    ctx = "\n".join(f"  [{i+1}] {r['chunk']}" for i, r in enumerate(results))
+    prompt = (
+        f"You are a strict evaluation judge.\n\n"
+        f"Query: {query}\n\n"
+        f"Retrieved context:\n{ctx}\n\n"
+        f"Generated summary:\n{summary}\n\n"
+        "Score the summary on each metric below (0.0 – 1.0).\n"
+        "  hallucination_rate: fraction of claims NOT supported by context (lower is better)\n"
+        "  groundedness: fraction of claims fully supported by context (higher is better)\n"
+        "  precision: fraction of summary claims that are relevant to the query (higher is better)\n"
+        "  recall: fraction of relevant context facts captured in the summary (higher is better)\n\n"
+        "Return ONLY valid JSON: {\"hallucination_rate\": 0.0, \"groundedness\": 0.0, "
+        "\"precision\": 0.0, \"recall\": 0.0}\n"
+        "No markdown fences, no extra text."
+    )
+    resp = _client.models.generate_content(model=_LLM_MODEL, contents=prompt)
+    raw = (resp.text or "{}").strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    try:
+        metrics = json.loads(raw)
+        return {
+            "hallucination_rate": round(float(metrics.get("hallucination_rate", 0)), 2),
+            "groundedness": round(float(metrics.get("groundedness", 0)), 2),
+            "precision": round(float(metrics.get("precision", 0)), 2),
+            "recall": round(float(metrics.get("recall", 0)), 2),
+        }
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return {
+            "hallucination_rate": 0.0,
+            "groundedness": 0.0,
+            "precision": 0.0,
+            "recall": 0.0,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 def get_maintenance_approach(pump_model: str) -> str:
     """
-    Given a pump model, returns a short, professional engineering summary of recommended maintenance approaches
-    using the Study_of_Various_Maintenance_Approaches.pdf as context.
+    Validate and recommend maintenance strategies by querying
+    Study_of_Various_Maintenance_Approaches.pdf.
+
+    Returns a JSON string:
+    {
+        "summary": "...",
+        "confidence": 0.78,
+        "confidence_label": "HIGH",
+        "key_findings": ["...", "..."],
+        "sources_matched": 5,
+        "validation_notes": "..."
+    }
     """
-    pdf_path = "Study_of_Various_Maintenance_Approaches.pdf"
-    raw_text = extract_text_from_pdf(pdf_path)
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=470,
-        chunk_overlap=100,
-        length_function=len,
+    raw_text = _extract_text(_PDF_PATH)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=470, chunk_overlap=100, length_function=len)
+    chunks = splitter.split_text(raw_text)
+
+    embeddings = np.array(_embed_texts(chunks)).astype("float32")
+    index = faiss.IndexFlatL2(embeddings.shape[1])
+    index.add(embeddings)
+
+    query = (
+        f"Recommended maintenance strategy, predictive maintenance schedule, "
+        f"and reliability best practices for the pump model: {pump_model}"
     )
-    text_chunks = text_splitter.split_text(raw_text)
-    embeddings = embedding_model.embed_documents(text_chunks)
-    embeddings_array = np.array(embeddings).astype('float32')
-    embedding_dimension = len(embeddings[0])
-    index = faiss.IndexFlatL2(embedding_dimension)
-    index.add(embeddings_array)
-    # Compose a query for the pump model
-    query = f"What is the recommended maintenance approach for the pump model: {pump_model}? Provide a short, professional engineering summary."
-    results = []
-    try:
-        results = search_similar_chunks.__wrapped__(query, 3, text_chunks, embedding_model, index)
-    except Exception:
-        # fallback to legacy signature if not wrapped
-        results = search_similar_chunks(query, 3)
-    summary = verify_results_with_llm.__wrapped__(query, results, llm) if hasattr(verify_results_with_llm, '__wrapped__') else verify_results_with_llm(query, results)
-    return str(summary).strip()
+    results = _search(query, chunks, index, top_k=5)
 
-def search_similar_chunks(query: str, top_k: int = 3, text_chunks=None, embedding_model=None, index=None) -> List[Dict[str, Any]]:
-    """
-    Search for chunks similar to the query and return them with their similarity scores.
-    Args:
-        query: The search query
-        top_k: Number of results to return
-        text_chunks: List of text chunks
-        embedding_model: Embedding model instance
-        index: FAISS index
-    Returns:
-        List of dictionaries with 'chunk', 'score', and 'id' keys
-    """
-    if text_chunks is None or embedding_model is None or index is None:
-        raise ValueError("text_chunks, embedding_model, and index must be provided")
-    query_embedding = embedding_model.embed_query(query)
-    query_embedding_array = np.array([query_embedding]).astype('float32')
-    distances, indices = index.search(query_embedding_array, top_k)
-    results = []
-    for i, idx in enumerate(indices[0]):
-        if idx != -1:
-            results.append({
-                'chunk': text_chunks[idx],
-                'score': float(1 / (1 + distances[0][i])),
-                'id': int(idx)
-            })
-    return results
+    avg_score = float(np.mean([r["score"] for r in results])) if results else 0.0
+    label = _confidence_label(avg_score)
 
-def verify_results_with_llm(query: str, results: List[Dict[str, Any]], llm_instance=None) -> str:
-    """
-    Use the LLM to generate a professional summary for the query based on the retrieved chunks.
-    Args:
-        query: The original search query
-        results: List of retrieved chunks with their scores
-        llm_instance: LLM instance to use
-    Returns:
-        A string summarizing the verification results
-    """
-    if llm_instance is None:
-        raise ValueError("llm_instance must be provided")
-    prompt = f"Query: {query}\n\n"
-    prompt += "Relevant Context:\n"
-    for i, result in enumerate(results):
-        prompt += f"{i+1}. {result['chunk']}\n"
-    prompt += ("\nUsing the above context, provide a short, professional engineering summary for the query. "
-               "Do not reference the chunks directly, just answer as an expert engineer.")
-    response = llm_instance([HumanMessage(content=prompt)])
-    return response.content
+    summary = _generate_summary(query, results)
+    key_findings = _generate_key_findings(query, results)
+    metrics = _compute_validation_metrics(query, results, summary)
+
+    validation = {
+        "summary": summary,
+        "confidence": round(avg_score, 2),
+        "confidence_label": label,
+        "key_findings": key_findings,
+        "sources_matched": len(results),
+        "validation_notes": (
+            f"Analysis based on {len(results)} relevant sections retrieved from "
+            f"Study_of_Various_Maintenance_Approaches.pdf ({len(chunks)} total chunks indexed). "
+            f"Average retrieval confidence: {avg_score:.0%} ({label})."
+        ),
+        "metrics": {
+            "hallucination_rate": metrics["hallucination_rate"],
+            "groundedness": metrics["groundedness"],
+            "precision": metrics["precision"],
+            "recall": metrics["recall"],
+            "faiss_score": round(avg_score, 2),
+        },
+    }
+    return json.dumps(validation)

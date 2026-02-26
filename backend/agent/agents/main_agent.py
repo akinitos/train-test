@@ -76,15 +76,7 @@ def read_webpage(url: str) -> str:
 # Build the JSON-schema string the agent must conform to
 # ---------------------------------------------------------------------------
 
-
-# Patch the IndustrialPumpReport schema to add new fields for the agent's output
-import copy
-_report_schema_dict = copy.deepcopy(IndustrialPumpReport.model_json_schema())
-_report_schema_dict["properties"]["replacement_analysis"] = {"title": "Replacement Analysis", "type": "string", "description": "Short engineering summary of replacement analysis for this pump model."}
-_report_schema_dict["properties"]["maintenance_approach"] = {"title": "Maintenance Approach", "type": "string", "description": "Short engineering summary of recommended maintenance approach for this pump model."}
-_report_schema_dict["properties"]["common_faults"] = {"title": "Common Faults", "type": "string", "description": "Short engineering summary of common faults for this pump model."}
-_report_schema_dict["required"] = list(set(_report_schema_dict.get("required", []) + ["replacement_analysis", "maintenance_approach", "common_faults"]))
-_REPORT_SCHEMA = json.dumps(_report_schema_dict, indent=2)
+_REPORT_SCHEMA = json.dumps(IndustrialPumpReport.model_json_schema(), indent=2)
 
 # ---------------------------------------------------------------------------
 # Root Agent
@@ -109,11 +101,21 @@ root_agent = Agent(
         "recommendations, and troubleshooting for this specific pump variant.\n"
         "7. After extracting the pump specifications and identifying the correct pump model, "
         "explicitly call the following helper functions with the identified pump model as the argument:\n"
-        "   - get_replacement_analysis(pump_model): Returns a short, professional engineering summary of replacement analysis for this pump model.\n"
-        "   - get_maintenance_approach(pump_model): Returns a short, professional engineering summary of recommended maintenance approach for this pump model.\n"
-        "   - get_common_faults(pump_model): Returns a short, professional engineering summary of common faults for this pump model.\n"
-        "Include the returned strings as the values for the fields 'replacement_analysis', 'maintenance_approach', and 'common_faults' in your final output.\n"
-        "8. Output strictly adhering to the following JSON schema (no markdown fences, no conversational text):\n\n"
+        "   - get_replacement_analysis(pump_model)\n"
+        "   - get_maintenance_approach(pump_model)\n"
+        "   - get_common_faults(pump_model)\n"
+        "Each function returns a JSON string. Parse the JSON and include the resulting object "
+        "as the value for the corresponding field (replacement_analysis, maintenance_approach, "
+        "common_faults) in your final output. Each object has: summary, confidence, "
+        "confidence_label, key_findings, sources_matched, validation_notes, and a metrics "
+        "sub-object with hallucination_rate, groundedness, precision, recall, faiss_score.\n"
+        "8. For decision_process.source_evaluations, create an array with one entry for EVERY "
+        "URL from the initial 10 search results. Each entry must have:\n"
+        "   - url: the URL\n"
+        "   - status: 'selected' (the 1 primary), 'validation' (the 2 cross-check), or 'rejected' (the 7 dropped)\n"
+        "   - reason_for_choice: why this source was kept (leave empty for rejected)\n"
+        "   - reason_for_elimination: why this source was dropped (leave empty for selected/validation)\n"
+        "9. Output strictly adhering to the following JSON schema (no markdown fences, no conversational text):\n\n"
         f"{_REPORT_SCHEMA}"
 
         "\nMATCHING: Extract data ONLY for the exact product name requested. Trace the correct row in multi-model tables.\n"

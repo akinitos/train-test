@@ -43,30 +43,54 @@ const OutputPanel = ({ data, visible = true, onNewSearch }) => {
 
   const handleDownloadPdf = async () => {
     if (!reportRef.current) return;
+
     const canvas = await html2canvas(reportRef.current, {
       scale: 2,
       backgroundColor: '#ffffff',
     });
-    const imgData = canvas.toDataURL('image/png');
+
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const padding = 10;
-    const ratio = Math.min(
-      (pageWidth - 2 * padding) / canvas.width,
-      (pageHeight - 2 * padding) / canvas.height,
-      1
-    );
-    const pdfWidth = canvas.width * ratio;
-    const pdfHeight = canvas.height * ratio;
-    pdf.addImage(
-      imgData,
-      'PNG',
-      padding + (pageWidth - 2 * padding - pdfWidth) / 2,
-      padding,
-      pdfWidth,
-      pdfHeight
-    );
+    const margin = 10;
+
+    // Scale canvas width to fit inside page margins
+    const usableWidth = pageWidth - 2 * margin;
+    const scale = usableWidth / canvas.width;
+    const scaledHeight = canvas.height * scale;
+    const usableHeight = pageHeight - 2 * margin;
+
+    // Slice the canvas into page-sized horizontal strips
+    let yOffset = 0; // px in original canvas coords
+    let pageNum = 0;
+    const sliceHeight = usableHeight / scale; // canvas px per page
+
+    while (yOffset < canvas.height) {
+      if (pageNum > 0) pdf.addPage();
+
+      const currentSlice = Math.min(sliceHeight, canvas.height - yOffset);
+
+      // Create a temporary canvas for this strip
+      const stripCanvas = document.createElement('canvas');
+      stripCanvas.width = canvas.width;
+      stripCanvas.height = currentSlice;
+      const ctx = stripCanvas.getContext('2d');
+      ctx.drawImage(
+        canvas,
+        0, yOffset,                    // source x, y
+        canvas.width, currentSlice,    // source w, h
+        0, 0,                          // dest x, y
+        canvas.width, currentSlice     // dest w, h
+      );
+
+      const stripImg = stripCanvas.toDataURL('image/png');
+      const stripPdfHeight = currentSlice * scale;
+      pdf.addImage(stripImg, 'PNG', margin, margin, usableWidth, stripPdfHeight);
+
+      yOffset += currentSlice;
+      pageNum++;
+    }
+
     pdf.save('Pump_Verification_Report.pdf');
   };
 
