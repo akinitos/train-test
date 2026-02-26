@@ -11,7 +11,13 @@ import requests
 
 from google.adk.agents import Agent
 
+
 from .models import IndustrialPumpReport
+
+# Import new validation functions
+from validations.pump.rag_for_pump import get_replacement_analysis
+from validations.analysis.rag_for_analysis import get_maintenance_approach
+from validations.faults.rag_for_faults import get_common_faults
 
 
 # ---------------------------------------------------------------------------
@@ -66,14 +72,19 @@ def read_webpage(url: str) -> str:
     except Exception as e:
         return f"Error fetching webpage: {str(e)}"
 
-
 # ---------------------------------------------------------------------------
 # Build the JSON-schema string the agent must conform to
 # ---------------------------------------------------------------------------
 
-_REPORT_SCHEMA = json.dumps(
-    IndustrialPumpReport.model_json_schema(), indent=2
-)
+
+# Patch the IndustrialPumpReport schema to add new fields for the agent's output
+import copy
+_report_schema_dict = copy.deepcopy(IndustrialPumpReport.model_json_schema())
+_report_schema_dict["properties"]["replacement_analysis"] = {"title": "Replacement Analysis", "type": "string", "description": "Short engineering summary of replacement analysis for this pump model."}
+_report_schema_dict["properties"]["maintenance_approach"] = {"title": "Maintenance Approach", "type": "string", "description": "Short engineering summary of recommended maintenance approach for this pump model."}
+_report_schema_dict["properties"]["common_faults"] = {"title": "Common Faults", "type": "string", "description": "Short engineering summary of common faults for this pump model."}
+_report_schema_dict["required"] = list(set(_report_schema_dict.get("required", []) + ["replacement_analysis", "maintenance_approach", "common_faults"]))
+_REPORT_SCHEMA = json.dumps(_report_schema_dict, indent=2)
 
 # ---------------------------------------------------------------------------
 # Root Agent
@@ -96,9 +107,16 @@ root_agent = Agent(
         "5. Extract the strict industrial specifications (Max Flow, Head, Power, etc.).\n"
         "6. Generate a prescriptive_analysis for an industrial engineer, detailing common faults, "
         "recommendations, and troubleshooting for this specific pump variant.\n"
-        "7. Output strictly adhering to the IndustrialPumpReport JSON schema.\n\n"
+        "7. After extracting the pump specifications and identifying the correct pump model, "
+        "explicitly call the following helper functions with the identified pump model as the argument:\n"
+        "   - get_replacement_analysis(pump_model): Returns a short, professional engineering summary of replacement analysis for this pump model.\n"
+        "   - get_maintenance_approach(pump_model): Returns a short, professional engineering summary of recommended maintenance approach for this pump model.\n"
+        "   - get_common_faults(pump_model): Returns a short, professional engineering summary of common faults for this pump model.\n"
+        "Include the returned strings as the values for the fields 'replacement_analysis', 'maintenance_approach', and 'common_faults' in your final output.\n"
+        "8. Output strictly adhering to the following JSON schema (no markdown fences, no conversational text):\n\n"
+        f"{_REPORT_SCHEMA}"
 
-        "MATCHING: Extract data ONLY for the exact product name requested. Trace the correct row in multi-model tables.\n"
+        "\nMATCHING: Extract data ONLY for the exact product name requested. Trace the correct row in multi-model tables.\n"
         "NOMINAL VS MAX: You must extract Nominal Flow (FlowNom56) and Nominal Head (HeadNom56). Do NOT extract Maximum Flow or Maximum Head. If the word 'Nominal' is missing, look for 'Rated Output', 'Duty Point', or 'Best Efficiency Point'. Convert all final values to metric (m³/h and meters).\n"
         "UNIT CONVERSION (CRITICAL): Final output MUST be metric. "
         "GPM × 0.2271 = m³/h. Feet × 0.3048 = metres. Round to the nearest integer.\n"
@@ -112,11 +130,8 @@ root_agent = Agent(
         "  - Clearly announce the 3 URLs you have CHOSEN to read, explaining why each looks promising "
         "(e.g. 'Selecting grundfos.com/product-data — official manufacturer PDF').\n"
         "This triage thought MUST appear before any read_webpage call so the user can see your decision process in real-time.\n\n"
-
-        "OUTPUT FORMAT: Your final answer MUST be a single raw JSON object (no markdown fences, no conversational text) "
-        f"conforming exactly to this schema:\n{_REPORT_SCHEMA}"
     ),
-    tools=[search_pump_specs, read_webpage],
+    tools=[search_pump_specs, read_webpage, get_replacement_analysis, get_maintenance_approach, get_common_faults],
 )
 
 
