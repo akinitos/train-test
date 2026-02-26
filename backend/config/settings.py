@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "corsheaders",
     # Local
     "agent",
+    "frontend",
 ]
 
 MIDDLEWARE = [
@@ -127,8 +128,10 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
-
-STATIC_URL = "static/"
+STATIC_URL = "/assets/"
+STATICFILES_DIRS = [
+    BASE_DIR / "../MARIO/dist/assets",
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
