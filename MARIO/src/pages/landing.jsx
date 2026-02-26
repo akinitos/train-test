@@ -41,14 +41,19 @@ export default function Landing() {
   const [manufacturer, setManufacturer] = useState('');
   const [productName, setProductName] = useState('');
 
-  // Settings
-  const [mode, setMode] = useState('standard');
+  // Settings — mode is no longer user-selectable up front;
+  // standard is always the primary search.
 
   // Results
   const [results, setResults] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Advanced insight (secondary, on-demand)
+  const [advancedResults, setAdvancedResults] = useState(null);
+  const [advancedLoading, setAdvancedLoading] = useState(false);
+  const [advancedError, setAdvancedError] = useState('');
 
   // Streaming thought events (visible while loading)
   const [streamEvents, setStreamEvents] = useState([]);
@@ -72,6 +77,8 @@ export default function Landing() {
   const handleSearch = async ({ manufacturer: mfr, productName: pn }) => {
     setError('');
     setResults(null);
+    setAdvancedResults(null);
+    setAdvancedError('');
     setStreamEvents([]);
     setLoading(true);
 
@@ -81,7 +88,7 @@ export default function Landing() {
       await agentStream({
         manufacturer: mfr,
         productName: pn,
-        mode,
+        mode: 'standard',
         sessionId,
         onEvent: (event) => {
           if (event.type === 'chunk') {
@@ -102,12 +109,47 @@ export default function Landing() {
     }
   };
 
+  const handleAdvancedInsight = async () => {
+    setAdvancedResults(null);
+    setAdvancedError('');
+    setAdvancedLoading(true);
+    setStreamEvents([]);
+
+    const chunks = [];
+
+    try {
+      await agentStream({
+        manufacturer,
+        productName,
+        mode: 'advanced',
+        sessionId,
+        onEvent: (event) => {
+          if (event.type === 'chunk') {
+            chunks.push(event.content);
+          } else if (event.type === 'done') {
+            setAdvancedResults(chunks.join('') || '(no response)');
+            if (event.session_id) setSessionId(event.session_id);
+          } else if (['tool_call', 'tool_result', 'thought'].includes(event.type)) {
+            setStreamEvents((prev) => [...prev, event]);
+          }
+        },
+      });
+    } catch (err) {
+      setAdvancedError(err.message || 'Something went wrong.');
+    } finally {
+      setAdvancedLoading(false);
+      setStreamEvents([]);
+    }
+  };
+
   const handleRefresh = () => {
     setShowConfirmModal(true);
   };
 
   const handleClearResults = () => {
     setResults(null);
+    setAdvancedResults(null);
+    setAdvancedError('');
     setSessionId(null);
     setError('');
     setStreamEvents([]);
@@ -121,26 +163,6 @@ export default function Landing() {
         {/* Logo */}
         <div className={`logo-container ${hasResults ? 'logo-compact' : ''}`}>
           <img src={Logo} alt="MARIO Logo" className="logo" />
-        </div>
-
-        {/* Inline controls: mode toggle */}
-        <div className={`inline-controls ${hasResults ? 'inline-controls-compact' : ''}`}>
-          <div className="mode-toggle">
-            <button
-              className={`mode-btn ${mode === 'standard' ? 'mode-btn-active' : ''}`}
-              onClick={() => setMode('standard')}
-              disabled={loading}
-            >
-              Standard
-            </button>
-            <button
-              className={`mode-btn ${mode === 'advanced' ? 'mode-btn-active' : ''}`}
-              onClick={() => setMode('advanced')}
-              disabled={loading}
-            >
-              Advanced
-            </button>
-          </div>
         </div>
 
         {/* Search bar */}
@@ -164,12 +186,18 @@ export default function Landing() {
             </div>
             <div className="thinking-log" ref={thoughtsRef}>
               {streamEvents.map((event, idx) => {
-                const rendered = renderThoughtEvent(event);
-                if (!rendered) return null;
+                const text = renderThoughtEvent(event);
+                if (!text) return null;
+                const isLast = idx === streamEvents.length - 1;
+                const isActive = isLast && loading;
                 return (
                   <div className="thought-item" key={idx}>
-                    <span className="thought-icon">{rendered.icon}</span>
-                    <span className="thought-text">{rendered.text}</span>
+                    <span className="thought-icon">
+                      {isActive
+                        ? <span className="thought-spinner" />
+                        : <FiCheck size={12} className="thought-check" />}
+                    </span>
+                    <span className="thought-text">{text}</span>
                   </div>
                 );
               })}
@@ -184,7 +212,10 @@ export default function Landing() {
           manufacturer={manufacturer}
           productName={productName}
           response={results}
-          mode={mode}
+          advancedResults={advancedResults}
+          advancedLoading={advancedLoading}
+          advancedError={advancedError}
+          onAdvancedInsight={handleAdvancedInsight}
           onRefresh={handleRefresh}
         />
       )}
