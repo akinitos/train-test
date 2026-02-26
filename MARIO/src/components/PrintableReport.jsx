@@ -94,6 +94,40 @@ export default function PrintableReport({ reportData }) {
 				</tbody>
 			</table>
 
+			{/* Engineering Validations & Analysis Section */}
+			<div style={{
+				marginBottom: 40,
+				padding: '32px 28px',
+				border: '1px solid #111',
+				background: '#fafafa',
+				fontFamily: 'Georgia, Times New Roman, Times, serif',
+			}}
+			>
+				<h2 style={{
+					fontSize: 22,
+					fontWeight: 700,
+					margin: '0 0 18px 0',
+					letterSpacing: 1,
+					color: '#111',
+					borderBottom: '2px solid #111',
+					paddingBottom: 6,
+					textTransform: 'uppercase',
+				}}>ENGINEERING VALIDATIONS & ANALYSIS</h2>
+
+				<div style={{ marginBottom: 24 }}>
+					<h3 style={validationH3Style}>Replacement Options & Advantages</h3>
+					<div style={validationTextStyle}>{reportData.replacement_analysis || '—'}</div>
+				</div>
+				<div style={{ marginBottom: 24 }}>
+					<h3 style={validationH3Style}>Recommended Maintenance Approach</h3>
+					<div style={validationTextStyle}>{reportData.maintenance_approach || '—'}</div>
+				</div>
+				<div>
+					<h3 style={validationH3Style}>Common Faults & Operating Problems</h3>
+					<div style={validationTextStyle}>{reportData.common_faults || '—'}</div>
+				</div>
+			</div>
+
 			{/* Prescriptive Analysis */}
 			<div style={{ marginBottom: 32 }}>
 				<h3 style={h3Style}>Prescriptive Analysis</h3>
@@ -161,4 +195,22 @@ const h3Style = {
 	margin: '24px 0 8px 0',
 	letterSpacing: 1,
 	color: '#111',
+};
+
+const validationH3Style = {
+	fontSize: 17,
+	fontWeight: 700,
+	margin: '0 0 8px 0',
+	letterSpacing: 0.5,
+	color: '#111',
+	textTransform: 'none',
+};
+
+const validationTextStyle = {
+	fontSize: 15,
+	color: '#111',
+	lineHeight: 1.6,
+	marginLeft: 0,
+	marginBottom: 0,
+	fontFamily: 'Georgia, Times New Roman, Times, serif',
 };

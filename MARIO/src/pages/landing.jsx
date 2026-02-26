@@ -8,7 +8,7 @@ import { mockIndustrialPumpReport } from '../mockData.js';
 import Logo from '../assets/logo.svg';
 import '../styles/landing.css';
 // Development toggle: set to false for production
-const USE_MOCK_DATA = true; // Set to false for production
+const USE_MOCK_DATA = false; // Set to false for production
 
 // ── Thought-event renderer ──────────────────────────────────────────────────
 

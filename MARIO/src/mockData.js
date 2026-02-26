@@ -32,6 +32,12 @@ export const mockIndustrialPumpReport = {
 			'Flush pump with clean solvent after handling viscous or crystallizing chemicals.',
 		],
 	},
+	replacement_analysis:
+		"For chemical process pumps operating in aggressive environments, replacement is recommended when performance drops below 80% of nominal flow or head, or when corrosion or pitting is observed on wetted components. Upgrading to a modern, magnetically coupled pump can eliminate seal failures and reduce fugitive emissions, while selecting advanced composite materials can extend service life and lower total cost of ownership.",
+	maintenance_approach:
+		"A predictive maintenance schedule is advised, including quarterly vibration analysis, semi-annual thermographic inspections, and annual ultrasonic thickness testing of wetted parts. Digital monitoring of bearing temperature and seal leakage should be implemented for early fault detection. Maintenance intervals may be shortened for pumps handling highly corrosive or abrasive fluids.",
+	common_faults:
+		"Typical faults for chemical pumps include cavitation due to low NPSH, mechanical seal leaks from chemical attack, bearing failure caused by misalignment or inadequate lubrication, and impeller clogging from solids or crystallization. Early detection and prompt corrective action are essential to prevent unplanned downtime and costly repairs.",
 	decision_process: {
 		searched_urls: [
 			'https://www.chemengjournal.com/pump-selection-guide-2025.pdf',
