@@ -4,28 +4,127 @@ import InputComponent from '../components/inputComponent';
 import OutputComponent from '../components/outputComponent';
 import ConfirmModal from '../components/ConfirmModal';
 import { agentStream } from '../services/api';
+import { mockIndustrialPumpReport } from '../mockData.js';
 import Logo from '../assets/logo.svg';
 import '../styles/landing.css';
+// Development toggle: set to false for production
+const USE_MOCK_DATA = true; // Set to false for production
 
 // ── Thought-event renderer ──────────────────────────────────────────────────
 
+// Custom spinner for event rows
+function Spinner({ size = 14 }) {
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        width: size,
+        height: size,
+        border: '2px solid #b3b3b3',
+        borderTop: '2px solid #0078d4',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite',
+        marginRight: 6,
+        verticalAlign: 'middle',
+      }}
+    />
+  );
+}
+
+// Badge for URLs
+function UrlBadge({ url }) {
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: 'inline-block',
+        background: '#f3f6fa',
+        color: '#0078d4',
+        border: '1px solid #e0e6ed',
+        borderRadius: 12,
+        padding: '2px 10px',
+        fontSize: 12,
+        margin: 2,
+        textDecoration: 'none',
+        maxWidth: 180,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+      title={url}
+    >
+      {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+    </a>
+  );
+}
+
 function renderThoughtEvent(event) {
+  // Tool call: search_pump_specs
+  if (event.type === 'tool_call' && event.name === 'search_pump_specs') {
+    return (
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Spinner size={14} />
+        <span>Initiating deep web search for 10 technical sources…</span>
+      </span>
+    );
+  }
+  // Tool result: search_pump_specs
+  if (event.type === 'tool_result' && event.name === 'search_pump_specs') {
+    // Try to extract URLs from result
+    let urls = [];
+    if (typeof event.result === 'string') {
+      try {
+        const parsed = JSON.parse(event.result);
+        if (Array.isArray(parsed)) {
+          urls = parsed.map(x => x.url || x);
+        } else if (parsed && Array.isArray(parsed.urls)) {
+          urls = parsed.urls;
+        } else if (parsed && parsed.results && Array.isArray(parsed.results)) {
+          urls = parsed.results.map(x => x.url || x);
+        }
+      } catch (e) {
+        // fallback: try to extract URLs with regex
+        urls = (event.result.match(/https?:\/\/[^\s"']+/g) || []);
+      }
+    }
+    if (!urls.length) return 'Found sources, but none could be extracted.';
+    return (
+      <div style={{ margin: '6px 0 2px 0' }}>
+        <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 4 }}>
+          Found {urls.length} potential sources. Initiating AI triage…
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {urls.map((url, i) => (
+            <UrlBadge url={url} key={url + i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  // Tool call: read_webpage
+  if (event.type === 'tool_call' && event.name === 'read_webpage') {
+    const url = event.args?.url ?? '';
+    return (
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Spinner size={13} />
+        <span>[Scraping Data] Reading technical document from: <span style={{ color: '#0078d4' }}>{url}</span></span>
+      </span>
+    );
+  }
+  // Tool result: read_webpage
+  if (event.type === 'tool_result' && event.name === 'read_webpage') {
+    return 'Page content retrieved';
+  }
+  // Other tool calls/results
   if (event.type === 'tool_call') {
-    if (event.name === 'search_pump_specs') {
-      const query = event.args?.query ?? '';
-      return `Searching: ${query}`;
-    }
-    if (event.name === 'read_webpage') {
-      const url = event.args?.url ?? '';
-      return `Reading: ${url}`;
-    }
     return `Calling tool: ${event.name}`;
   }
   if (event.type === 'tool_result') {
-    if (event.name === 'search_pump_specs') return 'Search results retrieved';
-    if (event.name === 'read_webpage') return 'Page content retrieved';
     return `${event.name} complete`;
   }
+  // Thought
   if (event.type === 'thought') {
     return event.content.length > 160
       ? event.content.slice(0, 157) + '…'
@@ -82,28 +181,35 @@ export default function Landing() {
     setStreamEvents([]);
     setLoading(true);
 
-    const finalChunks = [];
-
-    try {
-      await agentStream({
-        manufacturer: mfr,
-        productName: pn,
-        mode: 'standard',
-        sessionId,
-        onEvent: (event) => {
-          if (event.type === 'chunk') {
-            finalChunks.push(event.content);
-          } else if (event.type === 'done') {
-            setResults(finalChunks.join('') || '(no response)');
-            if (event.session_id) setSessionId(event.session_id);
-          } else if (['tool_call', 'tool_result', 'thought'].includes(event.type)) {
-            setStreamEvents((prev) => [...prev, event]);
-          }
-        },
-      });
-    } catch (err) {
-      setError(err.message || 'Something went wrong.');
-    } finally {
+    if (!USE_MOCK_DATA) {
+      const finalChunks = [];
+      try {
+        await agentStream({
+          manufacturer: mfr,
+          productName: pn,
+          mode: 'standard',
+          sessionId,
+          onEvent: (event) => {
+            if (event.type === 'chunk') {
+              finalChunks.push(event.content);
+            } else if (event.type === 'done') {
+              setResults(finalChunks.join('') || '(no response)');
+              if (event.session_id) setSessionId(event.session_id);
+            } else if (['tool_call', 'tool_result', 'thought'].includes(event.type)) {
+              setStreamEvents((prev) => [...prev, event]);
+            }
+          },
+        });
+      } catch (err) {
+        setError(err.message || 'Something went wrong.');
+      } finally {
+        setLoading(false);
+        setStreamEvents([]);
+      }
+    } else {
+      // Simulate network delay and mock data
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      setResults(JSON.stringify(mockIndustrialPumpReport, null, 2));
       setLoading(false);
       setStreamEvents([]);
     }

@@ -855,3 +855,359 @@
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Section Headings ───────────────────────────────────────────────────────── */
+
+.section-heading {
+  margin: 1.5rem 0 1rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: #000;
+}
+
+/* ── Specification Grid ─────────────────────────────────────────────────────── */
+
+.spec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0;
+  border: 2px solid #000;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 3px 3px 0px #000;
+}
+
+.spec-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  border-right: 1px solid #eee;
+}
+
+.spec-card-null {
+  opacity: 0.5;
+}
+
+.spec-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+}
+
+.spec-unit {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.55;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.spec-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #000;
+  word-break: break-word;
+}
+
+.spec-value-null {
+  color: #bbb;
+  font-style: italic;
+  font-size: 1.1rem;
+}
+
+/* ── Advanced Insight Toggle ─────────────────────────────────────────────────── */
+
+.advanced-insight-bar {
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 0;
+}
+
+.advanced-insight-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 2px solid #000;
+  border-radius: 8px;
+  background: #000;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 3px 3px 0px #000;
+  transition: transform 0.1s, box-shadow 0.1s, background 0.2s;
+}
+
+.advanced-insight-btn:hover {
+  background: #222;
+}
+
+.advanced-insight-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: none;
+}
+
+.advanced-insight-btn-active {
+  background: #fff;
+  color: #000;
+}
+
+.advanced-insight-btn-active:hover {
+  background: #f5f5f5;
+}
+
+/* ── Insights Reveal ─────────────────────────────────────────────────────────── */
+
+.insights-reveal {
+  animation: fadeSlideUp 0.3s ease;
+}
+
+/* ── Prescriptive Analysis Cards ──────────────────────────────────────────── */
+
+.prescriptive-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.insight-card {
+  border: 2px solid #000;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 3px 3px 0px #000;
+}
+
+.insight-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.insight-card-success .insight-card-header {
+  background: #16a34a;
+  color: #fff;
+}
+
+.insight-card-warning .insight-card-header {
+  background: #f59e0b;
+  color: #000;
+}
+
+.insight-card-info .insight-card-header {
+  background: #2563eb;
+  color: #fff;
+}
+
+.insight-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.insight-list li {
+  padding: 10px 16px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #222;
+  border-bottom: 1px solid #eee;
+}
+
+.insight-list li:last-child {
+  border-bottom: none;
+}
+
+/* ── Responsive — spec grid & insights ───────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .spec-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .spec-value {
+    font-size: 1.05rem;
+  }
+
+  .advanced-insight-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .insight-card-header {
+    font-size: 0.72rem;
+  }
+
+  .insight-list li {
+    font-size: 0.85rem;
+    padding: 8px 14px;
+  }
+}
+
+@media (max-width: 390px) {
+  .spec-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Decision Process (collapsible) ──────────────────────────────────────── */
+
+.decision-details {
+  margin-top: 1.5rem;
+  border: 2px solid #000;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 3px 3px 0px #000;
+}
+
+.decision-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  background: #1a1a2e;
+  color: #00ff88;
+  user-select: none;
+  list-style: none;
+}
+
+.decision-summary::-webkit-details-marker {
+  display: none;
+}
+
+.decision-summary::before {
+  content: '▶';
+  font-size: 0.65rem;
+  transition: transform 0.2s;
+}
+
+.decision-details[open] > .decision-summary::before {
+  transform: rotate(90deg);
+}
+
+.decision-body {
+  background: #0d1117;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  animation: fadeSlideUp 0.25s ease;
+}
+
+.decision-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.decision-block-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #58a6ff;
+}
+
+.decision-label-primary {
+  color: #00ff88;
+}
+
+.decision-label-muted {
+  color: #8b949e;
+}
+
+.decision-url {
+  display: block;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.82rem;
+  color: #58a6ff;
+  text-decoration: none;
+  word-break: break-all;
+  padding: 4px 0;
+  transition: color 0.15s;
+}
+
+.decision-url:hover {
+  color: #79c0ff;
+  text-decoration: underline;
+}
+
+.decision-url-primary {
+  color: #00ff88;
+  font-size: 0.88rem;
+  font-weight: 600;
+  background: rgba(0, 255, 136, 0.08);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.decision-url-primary:hover {
+  color: #3dffa8;
+}
+
+.decision-reasoning {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: #c9d1d9;
+}
+
+.decision-log {
+  margin: 0;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.78rem;
+  line-height: 1.7;
+  color: #8b949e;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 12px 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.decision-log-line {
+  padding: 1px 0;
+}
+
+.decision-log-idx {
+  color: #484f58;
+  margin-right: 8px;
+}
+
+@media (max-width: 640px) {
+  .decision-body {
+    padding: 0.75rem 1rem;
+  }
+
+  .decision-log {
+    font-size: 0.72rem;
+    padding: 10px 12px;
+  }
+
+  .decision-url-primary {
+    font-size: 0.8rem;
+  }
+}
