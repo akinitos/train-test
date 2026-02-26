@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import InputComponent from '../components/inputComponent';
 import OutputComponent from '../components/outputComponent';
-import Logo from '../assets/logo.png';
+import Logo from '../assets/logo.svg';
 import NextButtonImg from '../assets/next.svg'; 
 import EnterButtonImg from '../assets/enter.svg'; 
 import PrevButtonImg from '../assets/prev.svg'; 
