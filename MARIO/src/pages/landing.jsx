@@ -43,6 +43,9 @@ export default function Landing() {
   const [pdfCleanup, setPdfCleanup] = useState(null); // Cleanup function for blob URL
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [fetchedData, setFetchedData] = useState(null);
+  const [loadingMessage, setLoadingMessage] = useState('Initializing verification sequence...');
 
   // UI state
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -104,15 +107,9 @@ export default function Landing() {
     setError('');
   };
 
-  const handleRefresh = () => {
-    setShowConfirmModal(true);
-  };
-
-  const handleClearResults = () => {
-    setResults(null);
-    clearPdfBlob();
-    setError('');
-    setShowConfirmModal(false);
+  const handleManufacturerChange = (val) => {
+    setManufacturer(val);
+    if (error) setError('');
   };
 
   return (
@@ -126,46 +123,63 @@ export default function Landing() {
         <FiSettings size={20} />
       </button>
 
-      {/* Dev: Test output button */}
-      {import.meta.env.DEV && (
-        <button
-          className="test-output-btn"
-          onClick={handleTestOutput}
-          title="Inject mock test output (dev only)"
-        >
-          <FiZap size={14} />
-          <span>Test Output</span>
-        </button>
-      )}
+  //Output
+  const outputData = fetchedData ? [
+      { label: 'Nominal Flow', value: fetchedData.FlowNom56 || 'N/A' },
+      { label: 'Nominal Head', value: fetchedData.HeadNom56 || 'N/A' },
+      { label: 'Phase', value: fetchedData.Phase || 'N/A' },
+      { label: 'Product Name', value: fetchedData.productName || productName },
+      { label: 'Manufacturer', value: fetchedData.manufacturer || manufacturer }
+    ] : [
+      { label: 'FlowNom56', value: '' },
+      { label: 'Phase', value: '' },
+      { label: 'Port', value: '' },
+      { label: 'Product Name', value: '' },
+      { label: 'Pump Design', value: '' }
+    ];
 
-      {/* Sidebar */}
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        mode={mode}
-        onModeChange={setMode}
-        showAccuracy={showAccuracy}
-        onShowAccuracyChange={setShowAccuracy}
-      />
+  return (
+    <div className="app-container">
+      <div className="logo-container">
+        <img src={Logo} alt="MARIO Logo" className="logo" />
+      </div>
+      <div className="form-container">
+        {step === 1 && !isLoading && (
+          <InputComponent
+            stepNumber={1}
+            label="Manufacturer"
+            value={manufacturer}
+            onChange={handleManufacturerChange}
+            onNext={handleNext}
+            error={error}
+            nextImage={NextButtonImg}
+          />
+        )}
 
-      {/* Main content */}
-      <div className={`landing-main ${hasResults ? 'landing-main-compact' : 'landing-main-centered'}`}>
-        {/* Logo */}
-        <div className={`logo-container ${hasResults ? 'logo-compact' : ''}`}>
-          <img src={Logo} alt="MARIO Logo" className="logo" />
-        </div>
+        {step === 2 && !isLoading && (
+          <InputComponent
+            stepNumber={2}
+            label="Product Name"
+            value={productName}
+            onChange={handleProductNameChange}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            error={error}
+            nextImage={EnterButtonImg}
+            prevImage={PrevButtonImg}
+          />
+        )}
 
-        {/* Search bar */}
-        <InputComponent
-          manufacturer={manufacturer}
-          productName={productName}
-          onManufacturerChange={setManufacturer}
-          onProductNameChange={setProductName}
-          onSubmit={handleSearch}
-          loading={loading}
-          compact={hasResults}
-          error={error}
-        />
+        {isLoading && (
+          <div className="input-section-container" style={{ textAlign: 'center', color: 'black' }}>
+            <h2 style={{ marginTop: '20px' }}>{loadingMessage}</h2>
+            <p>Please wait, this usually takes 10 to 15 seconds.</p>
+          </div>
+        )}
+
+        {step === 3 && !isLoading && (
+          <OutputComponent results={outputData} />
+        )}
       </div>
 
       {/* Output area — full-page takeover */}
