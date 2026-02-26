@@ -1,11 +1,11 @@
 import React, { useState, useCallback } from 'react';
+import { FiSettings, FiZap } from 'react-icons/fi';
 import InputComponent from '../components/inputComponent';
 import OutputComponent from '../components/outputComponent';
+import ConfirmModal from '../components/ConfirmModal';
+import Sidebar from '../components/Sidebar';
+import { standardSearch, advancedSearch } from '../services/api';
 import Logo from '../assets/logo.svg';
-import NextButtonImg from '../assets/next.svg'; 
-import EnterButtonImg from '../assets/enter.svg'; 
-import PrevButtonImg from '../assets/prev.svg'; 
-import HomeButtonImg from '../assets/home.svg';
 import '../styles/landing.css';
 
 const TEST_MOCK = {
