@@ -1,43 +1,95 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { FiSearch } from 'react-icons/fi';
 
-const InputComponent = ({ 
-  stepNumber, 
-  label, 
-  value, 
-  onChange, 
-  onNext, 
-  onPrev,
-  error,
-  nextImage, 
-  prevImage  
+const InputComponent = ({
+  manufacturer,
+  productName,
+  onManufacturerChange,
+  onProductNameChange,
+  onSubmit,
+  loading = false,
+  compact = false,
+  error = '',
 }) => {
+  const [fieldErrors, setFieldErrors] = useState({ manufacturer: '', productName: '' });
+
+  const validate = () => {
+    const errs = { manufacturer: '', productName: '' };
+    if (!manufacturer.trim()) errs.manufacturer = 'Manufacturer is required.';
+    if (!productName.trim()) errs.productName = 'Product name is required.';
+    setFieldErrors(errs);
+    return !errs.manufacturer && !errs.productName;
+  };
+
+  const handleSubmit = (e) => {
+    e?.preventDefault();
+    if (!loading && validate()) {
+      onSubmit({ manufacturer: manufacturer.trim(), productName: productName.trim() });
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleSubmit();
+  };
+
+  const clearFieldError = (field) => {
+    if (fieldErrors[field]) setFieldErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
   return (
-    <div className="input-section-container">
-      <h2 className="input-title">INPUT:</h2>
-      <h3 className="input-label">{stepNumber}. {label}</h3>
-      
-      <div className="input-wrapper">
-        <div className="input-row">
-          <input 
-            type="text" 
-            className={`box-input ${error ? 'input-error' : ''}`}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
+    <div className={`search-bar-wrapper ${compact ? 'search-bar-compact' : ''}`}>
+      <form className="search-bar" onSubmit={handleSubmit} noValidate>
+        <div className="search-field">
+          <input
+            type="text"
+            className={`search-input ${fieldErrors.manufacturer ? 'input-error' : ''}`}
+            placeholder="Manufacturer"
+            value={manufacturer}
+            onChange={(e) => {
+              onManufacturerChange(e.target.value);
+              clearFieldError('manufacturer');
+            }}
+            onKeyDown={handleKeyDown}
+            disabled={loading}
           />
-          <div className="button-group">
-            {onPrev && prevImage && (
-              <button className="img-btn" onClick={onPrev}>
-                <img src={prevImage} alt="Previous" />
-              </button>
-            )}
-            <button className="img-btn" onClick={onNext}>
-              <img src={nextImage} alt={stepNumber === 2 ? "Submit" : "Next"} />
-            </button>
-          </div>
+          {fieldErrors.manufacturer && (
+            <span className="error-text">{fieldErrors.manufacturer}</span>
+          )}
         </div>
-        
-        {error && <span className="error-text">{error}</span>}
-      </div>
+
+        <div className="search-field">
+          <input
+            type="text"
+            className={`search-input ${fieldErrors.productName ? 'input-error' : ''}`}
+            placeholder="Product Name"
+            value={productName}
+            onChange={(e) => {
+              onProductNameChange(e.target.value);
+              clearFieldError('productName');
+            }}
+            onKeyDown={handleKeyDown}
+            disabled={loading}
+          />
+          {fieldErrors.productName && (
+            <span className="error-text">{fieldErrors.productName}</span>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          className={`search-submit-btn ${loading ? 'search-loading' : ''}`}
+          disabled={loading}
+          aria-label="Search"
+        >
+          {loading ? (
+            <span className="spinner" />
+          ) : (
+            <FiSearch size={20} />
+          )}
+        </button>
+      </form>
+
+      {error && <p className="search-error">{error}</p>}
     </div>
   );
 };
