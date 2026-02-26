@@ -1,18 +1,17 @@
 import React from 'react';
-import { FiDownload, FiRefreshCw } from 'react-icons/fi';
+import { FiRefreshCw } from 'react-icons/fi';
 
 const OutputComponent = ({
   manufacturer,
   productName,
   response,
-  pdfUrl,
   mode,
   showAccuracy,
   onRefresh,
 }) => {
-  // ── Standard mode: parse JSON response ──
+  // Try to parse JSON response
   let parsed = null;
-  if (mode === 'standard' && response) {
+  if (response) {
     try {
       parsed = typeof response === 'string' ? JSON.parse(response) : response;
     } catch {
@@ -22,27 +21,12 @@ const OutputComponent = ({
 
   const isStructured = parsed && typeof parsed === 'object' && !Array.isArray(parsed);
 
-  // Download the backend-generated PDF
-  const handleDownloadPdf = () => {
-    if (!pdfUrl) return;
-    const a = document.createElement('a');
-    a.href = pdfUrl;
-    a.download = `MARIO_${manufacturer}_${productName}.pdf`;
-    a.click();
-  };
-
   return (
     <div className="output-area">
       {/* Header bar */}
       <div className="output-header">
         <h2 className="output-title">Results</h2>
         <div className="output-actions">
-          {mode === 'advanced' && pdfUrl && (
-            <button className="action-btn" onClick={handleDownloadPdf} title="Download PDF">
-              <FiDownload size={18} />
-              <span>Download PDF</span>
-            </button>
-          )}
           <button className="action-btn action-btn-danger" onClick={onRefresh} title="Clear results">
             <FiRefreshCw size={18} />
             <span>Clear</span>
@@ -69,57 +53,39 @@ const OutputComponent = ({
 
         {/* Results content */}
         <div className="output-content">
-          {mode === 'standard' ? (
-            /* Standard mode: render JSON data */
-            <>
-              {isStructured ? (
-                <div className="output-details">
-                  {Object.entries(parsed).filter(([key]) => key !== 'accuracy').map(([key, value]) => (
-                    <div className="output-detail-row" key={key}>
-                      <span className="detail-key">{key}</span>
-                      <span className="detail-value">
-                        {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
-                      </span>
-                    </div>
-                  ))}
+          {isStructured ? (
+            <div className="output-details">
+              {Object.entries(parsed).filter(([key]) => key !== 'accuracy').map(([key, value]) => (
+                <div className="output-detail-row" key={key}>
+                  <span className="detail-key">{key}</span>
+                  <span className="detail-value">
+                    {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                  </span>
                 </div>
-              ) : (
-                <div className="output-prose">
-                  {typeof response === 'string' ? response : JSON.stringify(response, null, 2)}
-                </div>
-              )}
-
-              {/* Accuracy section (standard mode only, when enabled) */}
-              {showAccuracy && isStructured && parsed.accuracy && (
-                <div className="output-accuracy">
-                  <h3 className="accuracy-title">Accuracy Comparison</h3>
-                  <div className="accuracy-content">
-                    {typeof parsed.accuracy === 'object'
-                      ? Object.entries(parsed.accuracy).map(([key, val]) => (
-                          <div className="output-detail-row" key={key}>
-                            <span className="detail-key">{key}</span>
-                            <span className="detail-value">{String(val)}</span>
-                          </div>
-                        ))
-                      : <p>{String(parsed.accuracy)}</p>
-                    }
-                  </div>
-                </div>
-              )}
-            </>
+              ))}
+            </div>
           ) : (
-            /* Advanced mode: render embedded PDF from backend */
-            pdfUrl ? (
-              <div className="pdf-viewer-container">
-                <iframe
-                  className="pdf-viewer"
-                  src={pdfUrl}
-                  title="Advanced search results (PDF)"
-                />
+            <div className="output-prose">
+              {typeof response === 'string' ? response : JSON.stringify(response, null, 2)}
+            </div>
+          )}
+
+          {/* Accuracy section (when enabled and data available) */}
+          {showAccuracy && isStructured && parsed.accuracy && (
+            <div className="output-accuracy">
+              <h3 className="accuracy-title">Accuracy Comparison</h3>
+              <div className="accuracy-content">
+                {typeof parsed.accuracy === 'object'
+                  ? Object.entries(parsed.accuracy).map(([key, val]) => (
+                      <div className="output-detail-row" key={key}>
+                        <span className="detail-key">{key}</span>
+                        <span className="detail-value">{String(val)}</span>
+                      </div>
+                    ))
+                  : <p>{String(parsed.accuracy)}</p>
+                }
               </div>
-            ) : (
-              <div className="output-prose">No PDF data received.</div>
-            )
+            </div>
           )}
         </div>
       </div>

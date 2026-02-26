@@ -1,10 +1,9 @@
-import React, { useState, useCallback } from 'react';
-import { FiSettings, FiZap } from 'react-icons/fi';
+import React, { useState } from 'react';
+import { FiZap } from 'react-icons/fi';
 import InputComponent from '../components/inputComponent';
 import OutputComponent from '../components/outputComponent';
 import ConfirmModal from '../components/ConfirmModal';
-import Sidebar from '../components/Sidebar';
-import { standardSearch, advancedSearch } from '../services/api';
+import { agentRun } from '../services/api';
 import Logo from '../assets/logo.svg';
 import '../styles/landing.css';
 
@@ -33,56 +32,34 @@ export default function Landing() {
   const [manufacturer, setManufacturer] = useState('');
   const [productName, setProductName] = useState('');
 
-  // Settings
+  // Settings (shown inline instead of sidebar)
   const [mode, setMode] = useState('standard');
   const [showAccuracy, setShowAccuracy] = useState(false);
 
   // Results
-  const [results, setResults] = useState(null);   // JSON for standard mode
-  const [pdfUrl, setPdfUrl] = useState(null);      // Blob URL for advanced mode
-  const [pdfCleanup, setPdfCleanup] = useState(null); // Cleanup function for blob URL
+  const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [fetchedData, setFetchedData] = useState(null);
-  const [loadingMessage, setLoadingMessage] = useState('Initializing verification sequence...');
 
   // UI state
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  const hasResults = results !== null || pdfUrl !== null;
+  const hasResults = results !== null;
 
   // ── Handlers ──
 
-  const clearPdfBlob = useCallback(() => {
-    if (pdfCleanup) pdfCleanup();
-    setPdfUrl(null);
-    setPdfCleanup(null);
-  }, [pdfCleanup]);
-
   const handleSearch = async ({ manufacturer: mfr, productName: pn }) => {
     setError('');
-    clearPdfBlob();
     setResults(null);
     setLoading(true);
     try {
-      if (mode === 'standard') {
-        const data = await standardSearch({
-          manufacturer: mfr,
-          productName: pn,
-          showAccuracy,
-        });
-        setResults(data.response ?? data);
-      } else {
-        const { pdfUrl: url, cleanup } = await advancedSearch({
-          manufacturer: mfr,
-          productName: pn,
-          showAccuracy,
-        });
-        setPdfUrl(url);
-        setPdfCleanup(() => cleanup);
-      }
+      const data = await agentRun({
+        manufacturer: mfr,
+        productName: pn,
+        mode,
+        showAccuracy,
+      });
+      setResults(data.response ?? data);
     } catch (err) {
       setError(err.message || 'Something went wrong.');
     } finally {
@@ -93,93 +70,83 @@ export default function Landing() {
   const handleTestOutput = () => {
     if (!manufacturer.trim()) setManufacturer('Grundfos');
     if (!productName.trim()) setProductName('CR 95-2');
-    clearPdfBlob();
-    if (mode === 'advanced') {
-      // Create a tiny test PDF blob for advanced mode preview
-      const blob = new Blob(['%PDF-1.0 test'], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      setPdfUrl(url);
-      setPdfCleanup(() => () => URL.revokeObjectURL(url));
-      setResults(null);
-    } else {
-      setResults(TEST_MOCK.standard);
-    }
+    setResults(TEST_MOCK.standard);
     setError('');
   };
 
-  const handleManufacturerChange = (val) => {
-    setManufacturer(val);
-    if (error) setError('');
+  const handleRefresh = () => {
+    setShowConfirmModal(true);
+  };
+
+  const handleClearResults = () => {
+    setResults(null);
+    setError('');
+    setShowConfirmModal(false);
   };
 
   return (
     <div className={`landing ${hasResults ? 'landing-has-results' : ''}`}>
-      {/* Settings gear */}
-      <button
-        className="settings-gear-btn"
-        onClick={() => setSidebarOpen(true)}
-        aria-label="Open settings"
-      >
-        <FiSettings size={20} />
-      </button>
+      {/* Dev: Test output button */}
+      {import.meta.env.DEV && (
+        <button
+          className="test-output-btn"
+          onClick={handleTestOutput}
+          title="Inject mock test output (dev only)"
+        >
+          <FiZap size={14} />
+          <span>Test Output</span>
+        </button>
+      )}
 
-  //Output
-  const outputData = fetchedData ? [
-      { label: 'Nominal Flow', value: fetchedData.FlowNom56 || 'N/A' },
-      { label: 'Nominal Head', value: fetchedData.HeadNom56 || 'N/A' },
-      { label: 'Phase', value: fetchedData.Phase || 'N/A' },
-      { label: 'Product Name', value: fetchedData.productName || productName },
-      { label: 'Manufacturer', value: fetchedData.manufacturer || manufacturer }
-    ] : [
-      { label: 'FlowNom56', value: '' },
-      { label: 'Phase', value: '' },
-      { label: 'Port', value: '' },
-      { label: 'Product Name', value: '' },
-      { label: 'Pump Design', value: '' }
-    ];
+      {/* Main content */}
+      <div className={`landing-main ${hasResults ? 'landing-main-compact' : 'landing-main-centered'}`}>
+        {/* Logo */}
+        <div className={`logo-container ${hasResults ? 'logo-compact' : ''}`}>
+          <img src={Logo} alt="MARIO Logo" className="logo" />
+        </div>
 
-  return (
-    <div className="app-container">
-      <div className="logo-container">
-        <img src={Logo} alt="MARIO Logo" className="logo" />
-      </div>
-      <div className="form-container">
-        {step === 1 && !isLoading && (
-          <InputComponent
-            stepNumber={1}
-            label="Manufacturer"
-            value={manufacturer}
-            onChange={handleManufacturerChange}
-            onNext={handleNext}
-            error={error}
-            nextImage={NextButtonImg}
-          />
-        )}
-
-        {step === 2 && !isLoading && (
-          <InputComponent
-            stepNumber={2}
-            label="Product Name"
-            value={productName}
-            onChange={handleProductNameChange}
-            onNext={handleNext}
-            onPrev={handlePrev}
-            error={error}
-            nextImage={EnterButtonImg}
-            prevImage={PrevButtonImg}
-          />
-        )}
-
-        {isLoading && (
-          <div className="input-section-container" style={{ textAlign: 'center', color: 'black' }}>
-            <h2 style={{ marginTop: '20px' }}>{loadingMessage}</h2>
-            <p>Please wait, this usually takes 10 to 15 seconds.</p>
+        {/* Inline controls: mode toggle + accuracy */}
+        <div className={`inline-controls ${hasResults ? 'inline-controls-compact' : ''}`}>
+          <div className="mode-toggle">
+            <button
+              className={`mode-btn ${mode === 'standard' ? 'mode-btn-active' : ''}`}
+              onClick={() => setMode('standard')}
+              disabled={loading}
+            >
+              Standard
+            </button>
+            <button
+              className={`mode-btn ${mode === 'advanced' ? 'mode-btn-active' : ''}`}
+              onClick={() => setMode('advanced')}
+              disabled={loading}
+            >
+              Advanced
+            </button>
           </div>
-        )}
 
-        {step === 3 && !isLoading && (
-          <OutputComponent results={outputData} />
-        )}
+          <label className="accuracy-toggle" title="Compare results with reference data">
+            <input
+              type="checkbox"
+              checked={showAccuracy}
+              onChange={(e) => setShowAccuracy(e.target.checked)}
+              disabled={loading}
+            />
+            <span className="accuracy-toggle-slider"></span>
+            <span className="accuracy-toggle-label">Show Accuracy</span>
+          </label>
+        </div>
+
+        {/* Search bar */}
+        <InputComponent
+          manufacturer={manufacturer}
+          productName={productName}
+          onManufacturerChange={setManufacturer}
+          onProductNameChange={setProductName}
+          onSubmit={handleSearch}
+          loading={loading}
+          compact={hasResults}
+          error={error}
+        />
       </div>
 
       {/* Output area — full-page takeover */}
@@ -188,7 +155,6 @@ export default function Landing() {
           manufacturer={manufacturer}
           productName={productName}
           response={results}
-          pdfUrl={pdfUrl}
           mode={mode}
           showAccuracy={showAccuracy}
           onRefresh={handleRefresh}

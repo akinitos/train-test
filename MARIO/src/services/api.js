@@ -1,24 +1,31 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 /**
- * Standard search — returns JSON data from the backend.
+ * Run the agent and return the full JSON response.
  * @param {Object} params
  * @param {string} params.manufacturer - Manufacturer name
  * @param {string} params.productName - Product name
- * @param {boolean} params.showAccuracy - Whether to enable accuracy comparison
+ * @param {string} params.mode - 'standard' or 'advanced'
+ * @param {boolean} params.showAccuracy - Whether to include accuracy data
  * @param {string} [params.userId] - Optional user ID
  * @param {string} [params.sessionId] - Optional session ID to continue
  * @returns {Promise<Object>} JSON response from the backend
  */
-export async function standardSearch({ manufacturer, productName, showAccuracy = false, userId = 'default-user', sessionId = null }) {
+export async function agentRun({
+  manufacturer,
+  productName,
+  mode = 'standard',
+  showAccuracy = false,
+  userId = 'default-user',
+  sessionId = null,
+}) {
   const body = {
-    message: `${manufacturer} | ${productName}`,
+    message: `[${mode.toUpperCase()}] ${manufacturer} | ${productName}${showAccuracy ? ' | show_accuracy' : ''}`,
     user_id: userId,
-    show_accuracy: showAccuracy,
   };
   if (sessionId) body.session_id = sessionId;
 
-  const res = await fetch(`${API_BASE}/agent/standard/`, {
+  const res = await fetch(`${API_BASE}/agent/run/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -30,44 +37,6 @@ export async function standardSearch({ manufacturer, productName, showAccuracy =
   }
 
   return res.json();
-}
-
-/**
- * Advanced search — returns a PDF file from the backend.
- * @param {Object} params
- * @param {string} params.manufacturer - Manufacturer name
- * @param {string} params.productName - Product name
- * @param {boolean} params.showAccuracy - Whether to enable accuracy comparison
- * @param {string} [params.userId] - Optional user ID
- * @param {string} [params.sessionId] - Optional session ID to continue
- * @returns {Promise<{pdfUrl: string, cleanup: function}>} Object URL for the PDF blob and a cleanup function
- */
-export async function advancedSearch({ manufacturer, productName, showAccuracy = false, userId = 'default-user', sessionId = null }) {
-  const body = {
-    message: `${manufacturer} | ${productName}`,
-    user_id: userId,
-    show_accuracy: showAccuracy,
-  };
-  if (sessionId) body.session_id = sessionId;
-
-  const res = await fetch(`${API_BASE}/agent/advanced/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-
-  const blob = await res.blob();
-  const pdfUrl = URL.createObjectURL(blob);
-
-  return {
-    pdfUrl,
-    cleanup: () => URL.revokeObjectURL(pdfUrl),
-  };
 }
 
 /**
