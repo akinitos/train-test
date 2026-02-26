@@ -1,4 +1,4 @@
-/* ── Dashboard Layout ── */
+/* ── Landing Layout ── */
 
 .dashboard {
   display: flex;
@@ -45,7 +45,6 @@
   .dashboard-logo-img {
     max-width: 240px;
   }
-
 }
 
 @media (max-width: 390px) {

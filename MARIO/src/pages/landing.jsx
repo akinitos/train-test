@@ -5,7 +5,7 @@ import OutputPanel from '../components/OutputPanel';
 import { agentStream } from '../services/api';
 import { mockIndustrialPumpReport, mockThoughtEvents } from '../mockData.js';
 import Logo from '../assets/logo.svg';
-import '../styles/Dashboard.css';
+import '../styles/landing.css';
 
 // Development toggle: set to false for production
 const USE_MOCK_DATA = true;
@@ -15,7 +15,7 @@ const PHASE_INPUT = 'input';
 const PHASE_THINKING = 'thinking';
 const PHASE_RESULTS = 'results';
 
-export default function Dashboard() {
+export default function Landing() {
   const [phase, setPhase] = useState(PHASE_INPUT);
   const [results, setResults] = useState(null);
   const [sessionId, setSessionId] = useState(null);
