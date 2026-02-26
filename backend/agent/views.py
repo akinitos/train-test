@@ -138,10 +138,31 @@ def agent_stream(request):
                 session_id=session.id,
                 new_message=user_content,
             ):
-                if event.is_final_response() and event.content and event.content.parts:
-                    for part in event.content.parts:
-                        if part.text:
-                            yield f"data: {json.dumps({'type': 'chunk', 'content': part.text})}\n\n"
+                if event.is_final_response():
+                    # Final text — emit as chunk
+                    if event.content and event.content.parts:
+                        for part in event.content.parts:
+                            if getattr(part, "text", None):
+                                yield f"data: {json.dumps({'type': 'chunk', 'content': part.text})}\n\n"
+                else:
+                    # Intermediate events: tool calls, tool responses, model thoughts
+                    if event.content and event.content.parts:
+                        for part in event.content.parts:
+                            fn_call = getattr(part, "function_call", None)
+                            fn_resp = getattr(part, "function_response", None)
+                            text = getattr(part, "text", None)
+
+                            if fn_call and getattr(fn_call, "name", None):
+                                args = {}
+                                try:
+                                    args = dict(fn_call.args) if fn_call.args else {}
+                                except Exception:
+                                    pass
+                                yield f"data: {json.dumps({'type': 'tool_call', 'name': fn_call.name, 'args': args})}\n\n"
+                            elif fn_resp and getattr(fn_resp, "name", None):
+                                yield f"data: {json.dumps({'type': 'tool_result', 'name': fn_resp.name})}\n\n"
+                            elif text:
+                                yield f"data: {json.dumps({'type': 'thought', 'content': text})}\n\n"
 
             yield f"data: {json.dumps({'type': 'done', 'session_id': session.id})}\n\n"
 

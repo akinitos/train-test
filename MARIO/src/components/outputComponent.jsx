@@ -6,7 +6,6 @@ const OutputComponent = ({
   productName,
   response,
   mode,
-  showAccuracy,
   onRefresh,
 }) => {
   // Try to parse JSON response
@@ -55,7 +54,7 @@ const OutputComponent = ({
         <div className="output-content">
           {isStructured ? (
             <div className="output-details">
-              {Object.entries(parsed).filter(([key]) => key !== 'accuracy').map(([key, value]) => (
+              {Object.entries(parsed).map(([key, value]) => (
                 <div className="output-detail-row" key={key}>
                   <span className="detail-key">{key}</span>
                   <span className="detail-value">
@@ -70,23 +69,6 @@ const OutputComponent = ({
             </div>
           )}
 
-          {/* Accuracy section (when enabled and data available) */}
-          {showAccuracy && isStructured && parsed.accuracy && (
-            <div className="output-accuracy">
-              <h3 className="accuracy-title">Accuracy Comparison</h3>
-              <div className="accuracy-content">
-                {typeof parsed.accuracy === 'object'
-                  ? Object.entries(parsed.accuracy).map(([key, val]) => (
-                      <div className="output-detail-row" key={key}>
-                        <span className="detail-key">{key}</span>
-                        <span className="detail-value">{String(val)}</span>
-                      </div>
-                    ))
-                  : <p>{String(parsed.accuracy)}</p>
-                }
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

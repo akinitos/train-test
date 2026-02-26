@@ -1,11 +1,42 @@
 import React, { useState, useCallback } from 'react';
 import { FiSettings, FiZap } from 'react-icons/fi';
+import React, { useState, useRef, useEffect } from 'react';
 import InputComponent from '../components/inputComponent';
 import OutputComponent from '../components/outputComponent';
 import ConfirmModal from '../components/ConfirmModal';
-import { standardSearch, advancedSearch } from '../services/api';
+import { agentStream } from '../services/api';
 import Logo from '../assets/logo.svg';
 import '../styles/landing.css';
+
+// ── Thought-event renderer ──────────────────────────────────────────────────
+
+function renderThoughtEvent(event) {
+  if (event.type === 'tool_call') {
+    if (event.name === 'search_pump_specs') {
+      const query = event.args?.query ?? '';
+      return { icon: '🔍', text: `Searching: ${query}` };
+    }
+    if (event.name === 'read_webpage') {
+      const url = event.args?.url ?? '';
+      return { icon: '🌐', text: `Reading: ${url}` };
+    }
+    return { icon: '⚙️', text: `Calling tool: ${event.name}` };
+  }
+  if (event.type === 'tool_result') {
+    if (event.name === 'search_pump_specs') return { icon: '✓', text: 'Search results retrieved' };
+    if (event.name === 'read_webpage') return { icon: '✓', text: 'Page content retrieved' };
+    return { icon: '✓', text: `${event.name} complete` };
+  }
+  if (event.type === 'thought') {
+    const truncated = event.content.length > 160
+      ? event.content.slice(0, 157) + '…'
+      : event.content;
+    return { icon: '💭', text: truncated };
+  }
+  return null;
+}
+
+// ── Landing ─────────────────────────────────────────────────────────────────
 
 export default function Landing() {
   // Inputs
@@ -13,8 +44,8 @@ export default function Landing() {
   const [productName, setProductName] = useState('');
 
   // Settings
+  // Settings
   const [mode, setMode] = useState('standard');
-  const [showAccuracy, setShowAccuracy] = useState(false);
 
   // Results
   const [results, setResults] = useState(null);   // JSON for standard mode
@@ -23,11 +54,23 @@ export default function Landing() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Streaming thought events (visible while loading)
+  const [streamEvents, setStreamEvents] = useState([]);
+  const thoughtsRef = useRef(null);
+
   // UI state
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  const hasResults = results !== null || pdfUrl !== null;
+  const hasResults = results !== null;
+  const hasThoughts = loading && streamEvents.length > 0;
+
+  // Auto-scroll thought log to bottom as new events arrive
+  useEffect(() => {
+    if (thoughtsRef.current) {
+      thoughtsRef.current.scrollTop = thoughtsRef.current.scrollHeight;
+    }
+  }, [streamEvents]);
 
   // ── Handlers ──
 
@@ -41,46 +84,32 @@ export default function Landing() {
     setError('');
     clearPdfBlob();
     setResults(null);
+    setStreamEvents([]);
     setLoading(true);
+
+    const finalChunks = [];
+
     try {
-      if (mode === 'standard') {
-        const data = await standardSearch({
-          manufacturer: mfr,
-          productName: pn,
-          showAccuracy,
-        });
-        setResults(data.response ?? data);
-      } else {
-        const { pdfUrl: url, cleanup } = await advancedSearch({
-          manufacturer: mfr,
-          productName: pn,
-          showAccuracy,
-        });
-        setPdfUrl(url);
-        setPdfCleanup(() => cleanup);
-      }
+      await agentStream({
+        manufacturer: mfr,
+        productName: pn,
+        mode,
+        onEvent: (event) => {
+          if (event.type === 'chunk') {
+            finalChunks.push(event.content);
+          } else if (event.type === 'done') {
+            setResults(finalChunks.join('\n') || '(no response)');
+          } else if (['tool_call', 'tool_result', 'thought'].includes(event.type)) {
+            setStreamEvents((prev) => [...prev, event]);
+          }
+        },
+      });
     } catch (err) {
       setError(err.message || 'Something went wrong.');
     } finally {
       setLoading(false);
+      setStreamEvents([]);
     }
-  };
-
-  const handleTestOutput = () => {
-    if (!manufacturer.trim()) setManufacturer('');
-    if (!productName.trim()) setProductName('');
-    clearPdfBlob();
-    if (mode === 'advanced') {
-      // Create a tiny test PDF blob for advanced mode preview
-      const blob = new Blob(['%PDF-1.0 test'], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      setPdfUrl(url);
-      setPdfCleanup(() => () => URL.revokeObjectURL(url));
-      setResults(null);
-    } else {
-      setResults(TEST_MOCK.standard);
-    }
-    setError('');
   };
 
   const handleRefresh = () => {
@@ -91,37 +120,37 @@ export default function Landing() {
     setResults(null);
     clearPdfBlob();
     setError('');
-    setManufacturer('');
-    setProductName('');
+    setStreamEvents([]);
     setShowConfirmModal(false);
   };
 
   return (
     <div className={`landing ${hasResults ? 'landing-has-results' : ''}`}>
-      {/* Settings gear */}
-      <button
-        className="settings-gear-btn"
-        onClick={() => setSidebarOpen(true)}
-        aria-label="Open settings"
-      >
-        <FiSettings size={20} />
-      </button>
-
-      {/* Sidebar */}
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        mode={mode}
-        onModeChange={setMode}
-        showAccuracy={showAccuracy}
-        onShowAccuracyChange={setShowAccuracy}
-      />
-
       {/* Main content */}
       <div className={`landing-main ${hasResults ? 'landing-main-compact' : 'landing-main-centered'}`}>
         {/* Logo */}
         <div className={`logo-container ${hasResults ? 'logo-compact' : ''}`}>
           <img src={Logo} alt="MARIO Logo" className="logo" />
+        </div>
+
+        {/* Inline controls: mode toggle */}
+        <div className={`inline-controls ${hasResults ? 'inline-controls-compact' : ''}`}>
+          <div className="mode-toggle">
+            <button
+              className={`mode-btn ${mode === 'standard' ? 'mode-btn-active' : ''}`}
+              onClick={() => setMode('standard')}
+              disabled={loading}
+            >
+              Standard
+            </button>
+            <button
+              className={`mode-btn ${mode === 'advanced' ? 'mode-btn-active' : ''}`}
+              onClick={() => setMode('advanced')}
+              disabled={loading}
+            >
+              Advanced
+            </button>
+          </div>
         </div>
 
         {/* Search bar */}
@@ -135,6 +164,28 @@ export default function Landing() {
           compact={hasResults}
           error={error}
         />
+
+        {/* Live thought process panel — shown only while loading */}
+        {hasThoughts && (
+          <div className="thinking-panel">
+            <div className="thinking-header">
+              <span className="thinking-pulse" />
+              Agent is working…
+            </div>
+            <div className="thinking-log" ref={thoughtsRef}>
+              {streamEvents.map((event, idx) => {
+                const rendered = renderThoughtEvent(event);
+                if (!rendered) return null;
+                return (
+                  <div className="thought-item" key={idx}>
+                    <span className="thought-icon">{rendered.icon}</span>
+                    <span className="thought-text">{rendered.text}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Output area — full-page takeover */}
@@ -145,7 +196,6 @@ export default function Landing() {
           response={results}
           pdfUrl={pdfUrl}
           mode={mode}
-          showAccuracy={showAccuracy}
           onRefresh={handleRefresh}
         />
       )}
