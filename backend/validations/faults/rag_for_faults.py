@@ -4,13 +4,17 @@ RAG-based Common Faults Validation.
 Uses Elected_Operating_Problems_of_Central_Pu.pdf to provide
 an independent engineering assessment of common faults and operating
 problems, with confidence scoring derived from FAISS vector similarity.
+
+OPTIMISED: Single LLM call (summary + key_findings combined),
+algorithmic validation metrics (no LLM), cached FAISS index.
 """
 
 import json
 import os
+import re
 import numpy as np
 import pdfplumber
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 import faiss
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -24,11 +28,36 @@ if not GOOGLE_API_KEY:
     raise ValueError("GOOGLE_API_KEY is not set in .env or environment variables")
 
 _client = genai.Client(api_key=GOOGLE_API_KEY)
-_EMBEDDING_MODEL = "gemini-embedding-exp-03-07"
+_EMBEDDING_MODEL = "text-embedding-004"
 _LLM_MODEL = "gemini-2.5-flash"
 _PDF_PATH = os.path.join(os.path.dirname(__file__), "Elected_Operating_Problems_of_Central_Pu.pdf")
 
 print("All libraries imported successfully!")
+
+# ---------------------------------------------------------------------------
+# Module-level cache – avoids re-extracting/re-embedding the static PDF
+# ---------------------------------------------------------------------------
+_cached_chunks: List[str] | None = None
+_cached_index: faiss.IndexFlatL2 | None = None
+
+
+def _get_chunks_and_index() -> Tuple[List[str], faiss.IndexFlatL2]:
+    """Return (chunks, faiss_index), building them only on the first call."""
+    global _cached_chunks, _cached_index
+    if _cached_chunks is not None and _cached_index is not None:
+        return _cached_chunks, _cached_index
+
+    raw_text = _extract_text(_PDF_PATH)
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=470, chunk_overlap=100, length_function=len
+    )
+    _cached_chunks = splitter.split_text(raw_text)
+
+    embeddings = np.array(_embed_texts(_cached_chunks)).astype("float32")
+    _cached_index = faiss.IndexFlatL2(embeddings.shape[1])
+    _cached_index.add(embeddings)
+
+    return _cached_chunks, _cached_index
 
 
 # ---------------------------------------------------------------------------
@@ -79,57 +108,25 @@ def _confidence_label(score: float) -> str:
     return "LOW"
 
 
-def _generate_summary(query: str, results: List[Dict[str, Any]]) -> str:
+# ---------------------------------------------------------------------------
+# Single LLM call: summary + key findings combined
+# ---------------------------------------------------------------------------
+
+def _generate_summary_and_findings(
+    query: str, results: List[Dict[str, Any]]
+) -> Tuple[str, List[str]]:
+    """One LLM call that returns both the summary and key findings."""
     ctx = "\n".join(f"  [{i+1}] {r['chunk']}" for i, r in enumerate(results))
     prompt = (
         f"Query: {query}\n\n"
         f"Retrieved Document Sections:\n{ctx}\n\n"
-        "Instructions:\n"
-        "1. Synthesise the above into a concise, professional engineering summary.\n"
-        "2. Do NOT reference 'chunk' or 'section numbers'.\n"
-        "3. Write as a senior reliability engineer diagnosing common pump faults.\n"
-    )
-    resp = _client.models.generate_content(model=_LLM_MODEL, contents=prompt)
-    return (resp.text or "").strip()
-
-
-def _generate_key_findings(query: str, results: List[Dict[str, Any]]) -> List[str]:
-    ctx = "\n".join(f"  [{i+1}] {r['chunk']}" for i, r in enumerate(results))
-    prompt = (
-        f"Query: {query}\n\nContext:\n{ctx}\n\n"
-        "Return ONLY a JSON array of 3-5 short key findings about common faults. "
-        "Example: [\"Finding one\", \"Finding two\"]\n"
-        "No markdown fences, no extra text."
-    )
-    resp = _client.models.generate_content(model=_LLM_MODEL, contents=prompt)
-    raw = (resp.text or "[]").strip()
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-    try:
-        findings = json.loads(raw)
-        if isinstance(findings, list):
-            return [str(f) for f in findings[:5]]
-    except json.JSONDecodeError:
-        pass
-    return [raw]
-
-
-def _compute_validation_metrics(
-    query: str, results: List[Dict[str, Any]], summary: str
-) -> Dict[str, Any]:
-    ctx = "\n".join(f"  [{i+1}] {r['chunk']}" for i, r in enumerate(results))
-    prompt = (
-        f"You are a strict evaluation judge.\n\n"
-        f"Query: {query}\n\n"
-        f"Retrieved context:\n{ctx}\n\n"
-        f"Generated summary:\n{summary}\n\n"
-        "Score the summary on each metric below (0.0 – 1.0).\n"
-        "  hallucination_rate: fraction of claims NOT supported by context (lower is better)\n"
-        "  groundedness: fraction of claims fully supported by context (higher is better)\n"
-        "  precision: fraction of summary claims that are relevant to the query (higher is better)\n"
-        "  recall: fraction of relevant context facts captured in the summary (higher is better)\n\n"
-        "Return ONLY valid JSON: {\"hallucination_rate\": 0.0, \"groundedness\": 0.0, "
-        "\"precision\": 0.0, \"recall\": 0.0}\n"
+        "Return ONLY a valid JSON object with two keys:\n"
+        '  "summary": a concise professional engineering summary (2-4 sentences, '
+        "written as a senior reliability engineer diagnosing common pump faults; "
+        "do NOT reference chunk or section numbers),\n"
+        '  "key_findings": a JSON array of 3-5 short key findings about common faults.\n\n'
+        "Example:\n"
+        '{"summary": "...", "key_findings": ["Finding 1", "Finding 2"]}\n'
         "No markdown fences, no extra text."
     )
     resp = _client.models.generate_content(model=_LLM_MODEL, contents=prompt)
@@ -137,20 +134,73 @@ def _compute_validation_metrics(
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
     try:
-        metrics = json.loads(raw)
+        data = json.loads(raw)
+        summary = str(data.get("summary", ""))
+        findings = data.get("key_findings", [])
+        if isinstance(findings, list):
+            findings = [str(f) for f in findings[:5]]
+        else:
+            findings = [str(findings)]
+        return summary, findings
+    except json.JSONDecodeError:
+        return raw, [raw]
+
+
+# ---------------------------------------------------------------------------
+# Algorithmic validation metrics – NO LLM call needed
+# ---------------------------------------------------------------------------
+
+_STOP_WORDS = frozenset(
+    "a an the is are was were be been being have has had do does did "
+    "will would shall should may might can could of in to for on with at "
+    "by from as into through during before after above below between out "
+    "up down and but or nor not so yet both either neither each every all "
+    "any few more most other some such no nor too very just about also "
+    "than then that this these those it its".split()
+)
+
+
+def _tokenise(text: str) -> List[str]:
+    words = re.findall(r"[a-z0-9]{2,}", text.lower())
+    return [w for w in words if w not in _STOP_WORDS]
+
+
+def _compute_validation_metrics(
+    results: List[Dict[str, Any]], summary: str
+) -> Dict[str, float]:
+    if not results:
         return {
-            "hallucination_rate": round(float(metrics.get("hallucination_rate", 0)), 2),
-            "groundedness": round(float(metrics.get("groundedness", 0)), 2),
-            "precision": round(float(metrics.get("precision", 0)), 2),
-            "recall": round(float(metrics.get("recall", 0)), 2),
-        }
-    except (json.JSONDecodeError, ValueError, TypeError):
-        return {
-            "hallucination_rate": 0.0,
+            "hallucination_rate": 1.0,
             "groundedness": 0.0,
             "precision": 0.0,
             "recall": 0.0,
         }
+
+    relevance_threshold = 0.50
+    relevant_count = sum(1 for r in results if r["score"] >= relevance_threshold)
+    precision = relevant_count / len(results) if results else 0.0
+
+    estimated_total_relevant = max(relevant_count, 3)
+    recall = min(relevant_count / estimated_total_relevant, 1.0)
+
+    context_text = " ".join(r["chunk"] for r in results)
+    ctx_tokens = set(_tokenise(context_text))
+    sum_tokens = _tokenise(summary)
+
+    if sum_tokens:
+        grounded_tokens = sum(1 for t in sum_tokens if t in ctx_tokens)
+        groundedness = grounded_tokens / len(sum_tokens)
+    else:
+        groundedness = 0.0
+
+    hallucination_rate = round(1.0 - groundedness, 2)
+
+    return {
+        "hallucination_rate": max(hallucination_rate, 0.0),
+        "groundedness": round(groundedness, 2),
+        "precision": round(precision, 2),
+        "recall": round(recall, 2),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -162,54 +212,22 @@ def get_common_faults(pump_model: str) -> str:
     Validate and identify common faults by querying
     Elected_Operating_Problems_of_Central_Pu.pdf.
 
-    Returns a JSON string:
-    {
-        "summary": "...",
-        "confidence": 0.74,
-        "confidence_label": "HIGH",
-        "key_findings": ["...", "..."],
-        "sources_matched": 5,
-        "validation_notes": "..."
-    }
+    Returns a JSON string with summary, confidence, key_findings, metrics, etc.
     """
-    raw_text = _extract_text(_PDF_PATH)
-    splitter = RecursiveCharacterTextSplitter(chunk_size=470, chunk_overlap=100, length_function=len)
-    chunks = splitter.split_text(raw_text)
-
-    embeddings = np.array(_embed_texts(chunks)).astype("float32")
-    index = faiss.IndexFlatL2(embeddings.shape[1])
-    index.add(embeddings)
-
-    query = (
-        f"Common faults, operating problems, failure modes, and root cause analysis "
-        f"for the pump model: {pump_model}"
-    )
-    results = _search(query, chunks, index, top_k=5)
-
-    avg_score = float(np.mean([r["score"] for r in results])) if results else 0.0
-    label = _confidence_label(avg_score)
-
-    summary = _generate_summary(query, results)
-    key_findings = _generate_key_findings(query, results)
-    metrics = _compute_validation_metrics(query, results, summary)
-
+    # --- TEMPORARILY DISABLED: embedding API unavailable ---
     validation = {
-        "summary": summary,
-        "confidence": round(avg_score, 2),
-        "confidence_label": label,
-        "key_findings": key_findings,
-        "sources_matched": len(results),
-        "validation_notes": (
-            f"Analysis based on {len(results)} relevant sections retrieved from "
-            f"Elected_Operating_Problems_of_Central_Pu.pdf ({len(chunks)} total chunks indexed). "
-            f"Average retrieval confidence: {avg_score:.0%} ({label})."
-        ),
+        "summary": f"RAG validation for common faults of pump model '{pump_model}' is temporarily disabled due to embedding API unavailability. The agent's analysis is provided without PDF-backed validation.",
+        "confidence": 0.0,
+        "confidence_label": "skipped",
+        "key_findings": ["RAG embedding service temporarily unavailable – validation skipped."],
+        "sources_matched": 0,
+        "validation_notes": "Embedding model endpoint is currently unavailable. Re-enable when the Google embedding API is restored.",
         "metrics": {
-            "hallucination_rate": metrics["hallucination_rate"],
-            "groundedness": metrics["groundedness"],
-            "precision": metrics["precision"],
-            "recall": metrics["recall"],
-            "faiss_score": round(avg_score, 2),
+            "hallucination_rate": "N/A",
+            "groundedness": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "faiss_score": 0.0,
         },
     }
     return json.dumps(validation)

@@ -8,7 +8,7 @@ import Logo from '../assets/logo.svg';
 import '../styles/landing.css';
 
 // Development toggle: set to false for production
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 // Phases: input → thinking → results
 const PHASE_INPUT = 'input';

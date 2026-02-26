@@ -121,7 +121,7 @@ const OutputPanel = ({ data, visible = true, onNewSearch }) => {
         <div className="output-actions">
           <button className="output-action-btn output-action-pdf" onClick={handleDownloadPdf}>
             <FiPrinter size={18} />
-            <span>Download PDF</span>
+            <span>Super Output</span>
           </button>
           <button className="output-action-btn output-action-new" onClick={onNewSearch}>
             <FiSearch size={18} />

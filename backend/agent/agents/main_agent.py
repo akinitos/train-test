@@ -73,10 +73,28 @@ def read_webpage(url: str) -> str:
         return f"Error fetching webpage: {str(e)}"
 
 # ---------------------------------------------------------------------------
-# Build the JSON-schema string the agent must conform to
+# Build a COMPACT JSON-schema string (strip verbose descriptions to save tokens)
 # ---------------------------------------------------------------------------
 
-_REPORT_SCHEMA = json.dumps(IndustrialPumpReport.model_json_schema(), indent=2)
+def _compact_schema() -> str:
+    """Return a minified version of the report schema without field descriptions."""
+    schema = IndustrialPumpReport.model_json_schema()
+
+    def _strip_descriptions(obj):
+        if isinstance(obj, dict):
+            obj.pop("description", None)
+            obj.pop("title", None)
+            for v in obj.values():
+                _strip_descriptions(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                _strip_descriptions(item)
+        return obj
+
+    _strip_descriptions(schema)
+    return json.dumps(schema, separators=(",", ":"))
+
+_REPORT_SCHEMA = _compact_schema()
 
 # ---------------------------------------------------------------------------
 # Root Agent
@@ -125,13 +143,8 @@ root_agent = Agent(
         "PDF READING: Tables may be poorly formatted. Read carefully to associate numbers with the correct pump model.\n\n"
 
         "TRANSPARENCY & THINKING OUT LOUD:\n"
-        "Immediately after receiving the 10 URLs from search_pump_specs, and BEFORE calling read_webpage, "
-        "you MUST generate a detailed thought. In this thought you must:\n"
-        "  - List every URL you are REJECTING, with a short reason for each "
-        "(e.g. 'Rejecting amazon.com — retail/e-commerce, not a technical source').\n"
-        "  - Clearly announce the 3 URLs you have CHOSEN to read, explaining why each looks promising "
-        "(e.g. 'Selecting grundfos.com/product-data — official manufacturer PDF').\n"
-        "This triage thought MUST appear before any read_webpage call so the user can see your decision process in real-time.\n\n"
+        "After receiving the 10 URLs, BEFORE calling read_webpage, emit a thought listing "
+        "every rejected URL with a short reason and the 3 chosen URLs with why each looks promising.\n\n"
     ),
     tools=[search_pump_specs, read_webpage, get_replacement_analysis, get_maintenance_approach, get_common_faults],
 )
