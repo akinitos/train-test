@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import InputComponent from '../components/inputComponent';
-import OutputComponent from '../components/OutputComponent'; // Import the new component
+import OutputComponent from '../components/outputComponent'; 
 import Logo from '../assets/logo.png';
 import NextButtonImg from '../assets/next.png'; 
 import EnterButtonImg from '../assets/enter.png'; 
 import PrevButtonImg from '../assets/prev.png'; 
+import HomeButtonImg from '../assets/home.png';
 import '../styles/landing.css';
 
 export default function Landing() {
@@ -41,6 +42,13 @@ export default function Landing() {
     if (step === 2) setStep(1);
   };
 
+  const handleHome = () => {
+    setError('');
+    setManufacturer('')
+    setProductName('')
+    setStep(1);
+  };
+
   const handleManufacturerChange = (val) => {
     setManufacturer(val);
     if (error) setError('');
@@ -53,11 +61,9 @@ export default function Landing() {
 
   //Output
   const outputData = [
-    { label: 'FlowNom56', value: '' },
-    { label: 'Phase', value: '' },
-    { label: 'Port', value: '' },
-    { label: 'Product Name', value: '' },
-    { label: 'Pump Design', value: '' }
+    { label: 'FLOWNOM56', value: '' },
+    { label: 'HEADNOM56', value: ''},
+    { label: 'PHASE', value: '' }
   ];
 
   return (
@@ -94,7 +100,15 @@ export default function Landing() {
         )}
 
         {step === 3 && (
-          <OutputComponent results={outputData} />
+          <OutputComponent 
+            label1="Manufacturer Name"
+            value1={manufacturer}
+            label2="Product Name"
+            value2={productName}
+            results={outputData}
+            onHome={handleHome}
+            homeImage={HomeButtonImg} 
+            />
         )}
       </div>
     </div>
