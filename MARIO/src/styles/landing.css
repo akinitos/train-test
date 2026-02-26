@@ -156,14 +156,13 @@ body {
   margin: 0;
   font-size: 1.8rem;
   font-weight: bold;
-  width: 400px; /* Adjust this width to make sure all labels line up neatly */
+  width: 200px; /* Adjust this width to make sure all labels line up neatly */
   text-align: left;
 }
 
 .output-box {
   flex-grow: 1;
-  text-align: center;
-  max-width: 500px; /* Prevents the box from getting too long */
+  max-width: 300px; /* Prevents the box from getting too long */
   height: 50px; /* Matches the input height roughly */
   background-color: #ffffffe3;
   border: 2px solid #000;
