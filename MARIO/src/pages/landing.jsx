@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import InputComponent from '../components/inputComponent';
 import OutputComponent from '../components/outputComponent'; 
 import Logo from '../assets/logo.png';
-import NextButtonImg from '../assets/next.png'; 
-import EnterButtonImg from '../assets/enter.png'; 
-import PrevButtonImg from '../assets/prev.png'; 
-import HomeButtonImg from '../assets/home.png';
+import NextButtonImg from '../assets/next.svg'; 
+import EnterButtonImg from '../assets/enter.svg'; 
+import PrevButtonImg from '../assets/prev.svg'; 
+import HomeButtonImg from '../assets/home.svg';
 import '../styles/landing.css';
 
 export default function Landing() {
