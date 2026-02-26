@@ -11,7 +11,7 @@ function formatDate(date) {
 
 export default function PrintableReport({ reportData }) {
 	if (!reportData) return null;
-	const { manufacturer, product_name, specifications, prescriptive_analysis, decision_process } = reportData;
+	const { manufacturer, product_name, specifications, replacement_options = [], data_validation_matrix = [], sources = [] } = reportData;
 	const today = new Date();
 
 	return (
@@ -94,48 +94,79 @@ export default function PrintableReport({ reportData }) {
 				</tbody>
 			</table>
 
-			{/* Prescriptive Analysis */}
-			<div style={{ marginBottom: 32 }}>
-				<h3 style={h3Style}>Prescriptive Analysis</h3>
-				<div>
-					<strong>Recommended Applications:</strong>
-					<ul>
-						{(prescriptive_analysis?.recommended_applications || []).map((item, i) => (
-							<li key={i}>{item}</li>
-						))}
-					</ul>
+			{/* Replacement Options */}
+			{replacement_options.length > 0 && (
+				<div style={{ marginBottom: 32 }}>
+					<h3 style={h3Style}>Replacement Options</h3>
+					<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+						<thead>
+							<tr>
+								<th style={thStyle}>Manufacturer</th>
+								<th style={thStyle}>Model</th>
+								<th style={thStyle}>Flow (m³/h)</th>
+								<th style={thStyle}>Head (m)</th>
+								<th style={thStyle}>Power (kW)</th>
+								<th style={thStyle}>Compatibility</th>
+							</tr>
+						</thead>
+						<tbody>
+							{replacement_options.map((opt, i) => (
+								<tr key={i}>
+									<td style={tdStyle}>{opt.manufacturer}</td>
+									<td style={tdStyle}>{opt.model}</td>
+									<td style={tdStyle}>{opt.nominal_flow_m3h}</td>
+									<td style={tdStyle}>{opt.nominal_head_m}</td>
+									<td style={tdStyle}>{opt.motor_power_kw}</td>
+									<td style={tdStyle}>{opt.compatibility}</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
 				</div>
-				<div>
-					<strong>Common Faults to Watch:</strong>
-					<ul>
-						{(prescriptive_analysis?.common_faults_to_watch || []).map((item, i) => (
-							<li key={i}>{item}</li>
-						))}
-					</ul>
-				</div>
-				<div>
-					<strong>Troubleshooting Tips:</strong>
-					<ul>
-						{(prescriptive_analysis?.troubleshooting_tips || []).map((item, i) => (
-							<li key={i}>{item}</li>
-						))}
-					</ul>
-				</div>
-			</div>
+			)}
 
-			{/* Data Source Validation */}
-			<div>
-				<h3 style={h3Style}>Data Source Validation</h3>
-				<div style={{ marginBottom: 8 }}>
-					<strong>Selected Source:</strong> {decision_process?.selected_url ? (
-						<a href={decision_process.selected_url} style={{ color: '#111', textDecoration: 'underline' }}>{decision_process.selected_url}</a>
-					) : '—'}
+			{/* Data Validation Matrix */}
+			{data_validation_matrix.length > 0 && (
+				<div style={{ marginBottom: 32 }}>
+					<h3 style={h3Style}>Data Validation Matrix</h3>
+					<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+						<thead>
+							<tr>
+								<th style={thStyle}>Field</th>
+								<th style={thStyle}>Primary</th>
+								<th style={thStyle}>Validation</th>
+								<th style={thStyle}>Match</th>
+								<th style={thStyle}>Confidence</th>
+							</tr>
+						</thead>
+						<tbody>
+							{data_validation_matrix.map((row, i) => (
+								<tr key={i}>
+									<td style={tdStyle}>{row.field}</td>
+									<td style={tdStyle}>{row.primary_source_value}</td>
+									<td style={tdStyle}>{row.validation_source_value}</td>
+									<td style={tdStyle}>{row.match ? '✓' : '✗'}</td>
+									<td style={tdStyle}>{row.confidence}</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
 				</div>
-				<div style={{ marginBottom: 8 }}>
-					<strong>Validation Reasoning:</strong>
-					<div style={{ whiteSpace: 'pre-line', marginTop: 4 }}>{decision_process?.final_selection_reasoning ?? '—'}</div>
+			)}
+
+			{/* Sources */}
+			{sources.length > 0 && (
+				<div>
+					<h3 style={h3Style}>Sources</h3>
+					{sources.map((src, i) => (
+						<div key={i} style={{ marginBottom: 6, fontSize: 13 }}>
+							<strong>[{src.type}]</strong>{' '}
+							<a href={src.url} style={{ color: '#111', textDecoration: 'underline' }}>{src.title || src.url}</a>
+							{src.notes && <span style={{ color: '#555' }}> — {src.notes}</span>}
+						</div>
+					))}
 				</div>
-			</div>
+			)}
 		</div>
 	);
 }

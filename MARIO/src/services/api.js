@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE = '/api';
 
 /**
  * Run the agent and return the full JSON response.

@@ -1,15 +1,14 @@
-import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import Landing from "./pages/landing.jsx"
+import Dashboard from "./pages/Dashboard.jsx"
 
 function App() {
   return (
     <>
      <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
-        <Route index element={<Landing />} />
+        <Route index element={<Dashboard />} />
 
-        <Route path="landing" element={<Landing />} />
+        <Route path="dashboard" element={<Dashboard />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
