@@ -43,8 +43,8 @@ const InputPanel = ({
 
         <form className="input-panel-form" onSubmit={handleSubmit} noValidate>
           {/* Manufacturer */}
-          <div className="input-panel-field">
-            <label className="input-panel-label">1. Manufacturer</label>
+          <div className="input-panel-row">
+            <h3 className="input-panel-label">1. Manufacturer:</h3>
             <div className="input-panel-input-wrapper">
               <input
                 type="text"
@@ -64,9 +64,9 @@ const InputPanel = ({
             </div>
           </div>
 
-          {/* Model Name */}
-          <div className="input-panel-field">
-            <label className="input-panel-label">2. Model Name</label>
+          {/* Product Name */}
+          <div className="input-panel-row">
+            <h3 className="input-panel-label">2. Product Name:</h3>
             <div className="input-panel-input-wrapper">
               <input
                 type="text"
@@ -87,17 +87,16 @@ const InputPanel = ({
           </div>
 
           {/* Search Button */}
-          <button
-            type="submit"
-            className={`input-panel-submit ${loading ? 'input-panel-submit-loading' : ''}`}
-            disabled={loading}
-          >
-            {loading ? (
-              <span className="input-panel-spinner" />
-            ) : (
-              'Search'
-            )}
-          </button>
+          <div className="input-panel-row">
+            <div className="input-panel-btn-spacer" />
+            <button
+              type="submit"
+              className={`input-panel-submit ${loading ? 'input-panel-submit-loading' : ''}`}
+              disabled={loading}
+            >
+              {loading ? <span className="input-panel-spinner" /> : 'Search'}
+            </button>
+          </div>
         </form>
       </div>
     </div>

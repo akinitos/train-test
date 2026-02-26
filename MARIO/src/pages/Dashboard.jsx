@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import InputPanel from '../components/InputPanel';
 import ThoughtProcess from '../components/ThoughtProcess';
-import TabOutput from '../components/TabOutput';
+import OutputPanel from '../components/OutputPanel';
 import { agentStream } from '../services/api';
 import { mockIndustrialPumpReport, mockThoughtEvents } from '../mockData.js';
 import Logo from '../assets/logo.svg';
@@ -113,8 +113,8 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard">
-      {/* Logo — always shown, shrinks in thinking/results */}
-      <div className={`dashboard-logo ${phase !== PHASE_INPUT ? 'dashboard-logo-compact' : ''}`}>
+      {/* Logo — always shown, fixed size */}
+      <div className="dashboard-logo">
         <img src={Logo} alt="MARIO Logo" className="dashboard-logo-img" />
       </div>
 
@@ -141,7 +141,7 @@ export default function Dashboard() {
 
       {/* Phase: Results */}
       {phase === PHASE_RESULTS && (
-        <TabOutput
+        <OutputPanel
           data={results}
           visible={resultsVisible}
           onNewSearch={handleNewSearch}

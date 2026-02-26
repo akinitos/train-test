@@ -132,26 +132,13 @@
   color: #444;
 }
 
-/* Spinner ring used inline */
+/* Spinner ring (no longer used inline, kept for reference) */
 .tp-spinner-ring {
-  display: inline-block;
-  border: 2px solid #b3b3b3;
-  border-top: 2px solid #0078d4;
-  border-radius: 50%;
-  animation: tpSpin 0.8s linear infinite;
-  margin-right: 6px;
-  vertical-align: middle;
+  display: none;
 }
 
 @keyframes tpSpin {
   to { transform: rotate(360deg); }
-}
-
-/* Event row */
-.tp-event-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 /* URL badge */

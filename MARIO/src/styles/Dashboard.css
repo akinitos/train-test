@@ -25,10 +25,6 @@
   transition: max-width 0.4s ease, margin 0.4s ease;
 }
 
-.dashboard-logo-compact .dashboard-logo-img {
-  max-width: 160px;
-}
-
 /* ── Error ── */
 
 .dashboard-error {
@@ -50,9 +46,6 @@
     max-width: 240px;
   }
 
-  .dashboard-logo-compact .dashboard-logo-img {
-    max-width: 120px;
-  }
 }
 
 @media (max-width: 390px) {
@@ -62,9 +55,5 @@
 
   .dashboard-logo-img {
     max-width: 200px;
-  }
-
-  .dashboard-logo-compact .dashboard-logo-img {
-    max-width: 100px;
   }
 }

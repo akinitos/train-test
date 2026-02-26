@@ -2,17 +2,6 @@ import React, { useRef, useEffect } from 'react';
 import { FiCheck } from 'react-icons/fi';
 import '../styles/ThoughtProcess.css';
 
-// ── Spinner ────────────────────────────────────────────────────────────────
-
-function Spinner({ size = 14 }) {
-  return (
-    <span
-      className="tp-spinner-ring"
-      style={{ width: size, height: size }}
-    />
-  );
-}
-
 // ── URL Badge ──────────────────────────────────────────────────────────────
 
 function UrlBadge({ url }) {
@@ -33,12 +22,7 @@ function UrlBadge({ url }) {
 
 function renderThoughtEvent(event) {
   if (event.type === 'tool_call' && event.name === 'search_pump_specs') {
-    return (
-      <span className="tp-event-row">
-        <Spinner size={14} />
-        <span>Initiating deep web search for 10 technical sources…</span>
-      </span>
-    );
+    return 'Initiating deep web search for 10 technical sources…';
   }
 
   if (event.type === 'tool_result' && event.name === 'search_pump_specs') {
@@ -75,12 +59,9 @@ function renderThoughtEvent(event) {
   if (event.type === 'tool_call' && event.name === 'read_webpage') {
     const url = event.args?.url ?? '';
     return (
-      <span className="tp-event-row">
-        <Spinner size={13} />
-        <span>
-          [Scraping Data] Reading technical document from:{' '}
-          <span className="tp-url-inline">{url}</span>
-        </span>
+      <span>
+        [Scraping Data] Reading technical document from:{' '}
+        <span className="tp-url-inline">{url}</span>
       </span>
     );
   }
