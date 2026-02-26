@@ -1,5 +1,3 @@
-import React, { useState, useCallback } from 'react';
-import { FiSettings, FiZap } from 'react-icons/fi';
 import React, { useState, useRef, useEffect } from 'react';
 import InputComponent from '../components/inputComponent';
 import OutputComponent from '../components/outputComponent';
@@ -44,13 +42,11 @@ export default function Landing() {
   const [productName, setProductName] = useState('');
 
   // Settings
-  // Settings
   const [mode, setMode] = useState('standard');
 
   // Results
-  const [results, setResults] = useState(null);   // JSON for standard mode
-  const [pdfUrl, setPdfUrl] = useState(null);      // Blob URL for advanced mode
-  const [pdfCleanup, setPdfCleanup] = useState(null); // Cleanup function for blob URL
+  const [results, setResults] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -59,7 +55,6 @@ export default function Landing() {
   const thoughtsRef = useRef(null);
 
   // UI state
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const hasResults = results !== null;
@@ -74,15 +69,8 @@ export default function Landing() {
 
   // ── Handlers ──
 
-  const clearPdfBlob = useCallback(() => {
-    if (pdfCleanup) pdfCleanup();
-    setPdfUrl(null);
-    setPdfCleanup(null);
-  }, [pdfCleanup]);
-
   const handleSearch = async ({ manufacturer: mfr, productName: pn }) => {
     setError('');
-    clearPdfBlob();
     setResults(null);
     setStreamEvents([]);
     setLoading(true);
@@ -94,11 +82,13 @@ export default function Landing() {
         manufacturer: mfr,
         productName: pn,
         mode,
+        sessionId,
         onEvent: (event) => {
           if (event.type === 'chunk') {
             finalChunks.push(event.content);
           } else if (event.type === 'done') {
-            setResults(finalChunks.join('\n') || '(no response)');
+            setResults(finalChunks.join('') || '(no response)');
+            if (event.session_id) setSessionId(event.session_id);
           } else if (['tool_call', 'tool_result', 'thought'].includes(event.type)) {
             setStreamEvents((prev) => [...prev, event]);
           }
@@ -118,7 +108,7 @@ export default function Landing() {
 
   const handleClearResults = () => {
     setResults(null);
-    clearPdfBlob();
+    setSessionId(null);
     setError('');
     setStreamEvents([]);
     setShowConfirmModal(false);
@@ -194,7 +184,6 @@ export default function Landing() {
           manufacturer={manufacturer}
           productName={productName}
           response={results}
-          pdfUrl={pdfUrl}
           mode={mode}
           onRefresh={handleRefresh}
         />
