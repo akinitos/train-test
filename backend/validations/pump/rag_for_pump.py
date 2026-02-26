@@ -28,7 +28,7 @@ if not GOOGLE_API_KEY:
     raise ValueError("GOOGLE_API_KEY is not set in .env or environment variables")
 
 _client = genai.Client(api_key=GOOGLE_API_KEY)
-_EMBEDDING_MODEL = "text-embedding-004"
+_EMBEDDING_MODEL = "gemini-embedding-001"
 _LLM_MODEL = "gemini-2.5-flash"
 _PDF_PATH = os.path.join(os.path.dirname(__file__), "RAG_for_pumps.pdf")
 
@@ -225,20 +225,49 @@ def get_replacement_analysis(pump_model: str) -> str:
 
     Returns a JSON string with summary, confidence, key_findings, metrics, etc.
     """
-    # --- TEMPORARILY DISABLED: embedding API unavailable ---
+    try:
+        chunks, index = _get_chunks_and_index()
+    except Exception as e:
+        validation = {
+            "summary": f"RAG validation for pump model '{pump_model}' failed: {e}",
+            "confidence": 0.0,
+            "confidence_label": "error",
+            "key_findings": [f"Index build error: {e}"],
+            "sources_matched": 0,
+            "validation_notes": "FAISS index could not be built. Check PDF path and embedding API.",
+            "metrics": {"hallucination_rate": "N/A", "groundedness": "N/A", "precision": "N/A", "recall": "N/A", "faiss_score": 0.0},
+        }
+        return json.dumps(validation)
+
+    query = (
+        f"Replacement analysis, upgrade options, and lifecycle cost considerations "
+        f"for the pump model: {pump_model}"
+    )
+    results = _search(query, chunks, index, top_k=5)
+
+    avg_score = float(np.mean([r["score"] for r in results])) if results else 0.0
+    label = _confidence_label(avg_score)
+
+    summary, key_findings = _generate_summary_and_findings(query, results)
+    metrics = _compute_validation_metrics(results, summary)
+
     validation = {
-        "summary": f"RAG validation for pump model '{pump_model}' is temporarily disabled due to embedding API unavailability. The agent's analysis is provided without PDF-backed validation.",
-        "confidence": 0.0,
-        "confidence_label": "skipped",
-        "key_findings": ["RAG embedding service temporarily unavailable – validation skipped."],
-        "sources_matched": 0,
-        "validation_notes": "Embedding model endpoint is currently unavailable. Re-enable when the Google embedding API is restored.",
+        "summary": summary,
+        "confidence": round(avg_score, 2),
+        "confidence_label": label,
+        "key_findings": key_findings,
+        "sources_matched": len(results),
+        "validation_notes": (
+            f"Analysis based on {len(results)} relevant sections retrieved from "
+            f"RAG_for_pumps.pdf ({len(chunks)} total chunks indexed). "
+            f"Average retrieval confidence: {avg_score:.0%} ({label})."
+        ),
         "metrics": {
-            "hallucination_rate": "N/A",
-            "groundedness": "N/A",
-            "precision": "N/A",
-            "recall": "N/A",
-            "faiss_score": 0.0,
+            "hallucination_rate": metrics["hallucination_rate"],
+            "groundedness": metrics["groundedness"],
+            "precision": metrics["precision"],
+            "recall": metrics["recall"],
+            "faiss_score": round(avg_score, 2),
         },
     }
     return json.dumps(validation)
