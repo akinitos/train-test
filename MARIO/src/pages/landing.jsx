@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { FiCheck } from 'react-icons/fi';
 import InputComponent from '../components/inputComponent';
 import OutputComponent from '../components/outputComponent';
 import ConfirmModal from '../components/ConfirmModal';
@@ -12,24 +13,23 @@ function renderThoughtEvent(event) {
   if (event.type === 'tool_call') {
     if (event.name === 'search_pump_specs') {
       const query = event.args?.query ?? '';
-      return { icon: '🔍', text: `Searching: ${query}` };
+      return `Searching: ${query}`;
     }
     if (event.name === 'read_webpage') {
       const url = event.args?.url ?? '';
-      return { icon: '🌐', text: `Reading: ${url}` };
+      return `Reading: ${url}`;
     }
-    return { icon: '⚙️', text: `Calling tool: ${event.name}` };
+    return `Calling tool: ${event.name}`;
   }
   if (event.type === 'tool_result') {
-    if (event.name === 'search_pump_specs') return { icon: '✓', text: 'Search results retrieved' };
-    if (event.name === 'read_webpage') return { icon: '✓', text: 'Page content retrieved' };
-    return { icon: '✓', text: `${event.name} complete` };
+    if (event.name === 'search_pump_specs') return 'Search results retrieved';
+    if (event.name === 'read_webpage') return 'Page content retrieved';
+    return `${event.name} complete`;
   }
   if (event.type === 'thought') {
-    const truncated = event.content.length > 160
+    return event.content.length > 160
       ? event.content.slice(0, 157) + '…'
       : event.content;
-    return { icon: '💭', text: truncated };
   }
   return null;
 }
